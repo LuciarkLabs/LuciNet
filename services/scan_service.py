@@ -12,14 +12,24 @@ class ScanService:
         self.runner = runner_pool
         self.repository = repository
         self.is_cancelled = False
-        self.active_tasks = []
+        self.active_workers = []
+        self.current_queue = None
 
     def cancel(self):
 
         self.is_cancelled = True
-        for task in self.active_tasks:
-            if not task.done():
-                task.cancel()
+
+        for w in self.active_workers:
+            if not w.done():
+                w.cancel()
+
+        if self.current_queue:
+            while not self.current_queue.empty():
+                try:
+                    self.current_queue.get_nowait()
+                    self.current_queue.task_done()
+                except asyncio.QueueEmpty:
+                    break
 
     async def scan_all(
         self,
@@ -29,83 +39,115 @@ class ScanService:
         timeout_seconds: int = 15,
     ):
         self.is_cancelled = False
-        self.active_tasks = []
         self.runner.set_concurrent_limit(concurrent_scans)
         self.runner.checker.set_timeout(timeout_seconds)
 
-        async def _scan_and_update(proxy: ProxyConfig):
-            if self.is_cancelled:
-                return
-            try:
-                result = await self.runner.scan_proxy(proxy)
-                proxy.status = result.status
-                proxy.ping = result.latency_ms
-                proxy.country = result.country
-                proxy.city = result.city
-                proxy.isp = result.isp
-                proxy.last_scan = result.scan_time
-                if result.status == "Valid":
-                    proxy.last_seen_alive = result.scan_time
-                proxy.scan_count += 1
-
-                meta_info = {"error": result.error_message}
-                if asyncio.iscoroutinefunction(on_progress):
-                    await on_progress(proxy, meta_info)
-                else:
-                    on_progress(proxy, meta_info)
-            except asyncio.CancelledError:
-                pass
-            except Exception as e:
-                logger.error(f"Error in scan task for {proxy.remark}: {e}")
-
+        self.current_queue = asyncio.Queue()
         for p in proxies:
-            self.active_tasks.append(asyncio.create_task(_scan_and_update(p)))
+            self.current_queue.put_nowait(p)
 
-        if self.active_tasks:
-            await asyncio.gather(*self.active_tasks, return_exceptions=True)
-            self.active_tasks.clear()
+        async def worker():
+            while True:
+                try:
+                    proxy = await self.current_queue.get()
+                except asyncio.CancelledError:
+                    break
 
-            if not self.is_cancelled:
-                await self.repository.save_many(proxies)
-                logger.info(
-                    f"Batch scan completed and saved for {len(proxies)} proxies."
-                )
+                try:
+                    if self.is_cancelled:
+                        continue
 
-    async def test_speed(self, proxy: ProxyConfig) -> float:
+                    result = await self.runner.scan_proxy(proxy)
+                    proxy.status = result.status
+                    proxy.ping = result.latency_ms
+                    proxy.country = result.country
+                    proxy.city = result.city
+                    proxy.isp = result.isp
+                    proxy.last_scan = result.scan_time
+                    if result.status == "Valid":
+                        proxy.last_seen_alive = result.scan_time
+                    proxy.scan_count += 1
 
+                    meta_info = {"error": result.error_message}
+                    if asyncio.iscoroutinefunction(on_progress):
+                        await on_progress(proxy, meta_info)
+                    else:
+                        on_progress(proxy, meta_info)
+                except asyncio.CancelledError:
+                    break
+                except Exception as e:
+                    logger.error(f"Error in scan task for {proxy.remark}: {e}")
+                finally:
+                    self.current_queue.task_done()
+
+        self.active_workers = [
+            asyncio.create_task(worker()) for _ in range(concurrent_scans)
+        ]
+        await self.current_queue.join()
+
+        for w in self.active_workers:
+            if not w.done():
+                w.cancel()
+        await asyncio.gather(*self.active_workers, return_exceptions=True)
+
+        await self.repository.save_many(proxies)
+        logger.info(
+            f"Batch scan finished (or stopped) and saved {len(proxies)} proxies."
+        )
+
+    async def test_speed(self, proxy: ProxyConfig, max_size_kb: int = 500) -> float:
         self.runner.set_concurrent_limit(1)
-        speed = await self.runner.check_download_speed(proxy)
+        speed = await self.runner.check_download_speed(proxy, max_size_kb)
         proxy.download_speed = speed
         return speed
 
-    async def test_speed_many(self, proxies: List[ProxyConfig], on_progress=None):
+    async def test_speed_many(
+        self, proxies: List[ProxyConfig], on_progress=None, max_size_kb: int = 500
+    ):
         self.is_cancelled = False
-        self.active_tasks = []
-        self.runner.set_concurrent_limit(5)
+        concurrent_scans = 5
+        self.runner.set_concurrent_limit(concurrent_scans)
 
-        async def _test_single(proxy):
-            if self.is_cancelled:
-                return
-            try:
-                speed = await self.runner.check_download_speed(proxy)
-                proxy.download_speed = speed
-                if on_progress:
-                    if asyncio.iscoroutinefunction(on_progress):
-                        await on_progress(proxy)
-                    else:
-                        on_progress(proxy)
-            except asyncio.CancelledError:
-                pass
-            except Exception as e:
-                logger.error(f"Speed test error: {e}")
-
+        self.current_queue = asyncio.Queue()
         for p in proxies:
-            self.active_tasks.append(asyncio.create_task(_test_single(p)))
+            self.current_queue.put_nowait(p)
 
-        if self.active_tasks:
-            await asyncio.gather(*self.active_tasks, return_exceptions=True)
-            self.active_tasks.clear()
+        async def worker():
+            while True:
+                try:
+                    proxy = await self.current_queue.get()
+                except asyncio.CancelledError:
+                    break
 
-        if not self.is_cancelled:
-            await self.repository.save_many(proxies)
-            logger.info(f"Speed test completed and saved for {len(proxies)} proxies.")
+                try:
+                    if self.is_cancelled:
+                        continue
+
+                    speed = await self.runner.check_download_speed(proxy, max_size_kb)
+                    proxy.download_speed = speed
+                    if on_progress:
+                        if asyncio.iscoroutinefunction(on_progress):
+                            await on_progress(proxy)
+                        else:
+                            on_progress(proxy)
+                except asyncio.CancelledError:
+                    break
+                except Exception as e:
+                    logger.error(f"Speed test error: {e}")
+                finally:
+                    self.current_queue.task_done()
+
+        self.active_workers = [
+            asyncio.create_task(worker()) for _ in range(concurrent_scans)
+        ]
+        await self.current_queue.join()
+
+        for w in self.active_workers:
+            if not w.done():
+                w.cancel()
+        await asyncio.gather(*self.active_workers, return_exceptions=True)
+
+        await self.repository.save_many(proxies)
+        logger.info(
+            f"Speed test finished (or stopped) and saved {len(proxies)} proxies."
+        )

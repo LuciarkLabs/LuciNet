@@ -66,10 +66,11 @@ class SpeedTestWorker(QThread):
     finished_signal = Signal()
     error_signal = Signal(str)
 
-    def __init__(self, scan_service, proxies):
+    def __init__(self, scan_service, proxies, max_size_kb=500):
         super().__init__()
         self.scan_service = scan_service
         self.proxies = proxies
+        self.max_size_kb = max_size_kb
 
     def run(self):
         loop = asyncio.new_event_loop()
@@ -79,8 +80,11 @@ class SpeedTestWorker(QThread):
             self.progress_signal.emit(proxy)
 
         try:
+
             loop.run_until_complete(
-                self.scan_service.test_speed_many(self.proxies, on_progress)
+                self.scan_service.test_speed_many(
+                    self.proxies, on_progress, max_size_kb=self.max_size_kb
+                )
             )
         except Exception as e:
             logger.error(f"SpeedTestWorker Error: {e}")

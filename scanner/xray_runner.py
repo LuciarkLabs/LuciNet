@@ -19,20 +19,15 @@ class XrayRunnerPool:
         self,
         port_manager: PortManager,
         checker: XrayChecker,
-        max_concurrent: int = AppConfig.MAX_CONCURRENT_SCANS,
     ):
         self.port_manager = port_manager
         self.checker = checker
         self.executable = AppConfig.XRAY_EXECUTABLE
-
         self.semaphore = None
-        self.spawn_lock = None
 
     def set_concurrent_limit(self, limit: int):
 
         self.semaphore = asyncio.Semaphore(limit)
-        self.spawn_lock = asyncio.Lock()
-
         self.port_manager.reset()
 
     async def _wait_for_port(
@@ -49,10 +44,9 @@ class XrayRunnerPool:
                 )
                 writer.close()
                 await writer.wait_closed()
-                await asyncio.sleep(0.5)
                 return True
             except (ConnectionRefusedError, asyncio.TimeoutError, OSError):
-                await asyncio.sleep(0.1)
+                await asyncio.sleep(0.05)
         return False
 
     async def scan_proxy(self, proxy_config) -> ScanResult:
@@ -68,24 +62,19 @@ class XrayRunnerPool:
                     with open(config_path, "w", encoding="utf-8") as f:
                         json.dump(xray_json, f)
 
-                    async with self.spawn_lock:
+                    cflags = (
+                        subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+                    )
 
-                        cflags = (
-                            subprocess.CREATE_NO_WINDOW
-                            if sys.platform == "win32"
-                            else 0
-                        )
-
-                        process = await asyncio.create_subprocess_exec(
-                            self.executable,
-                            "run",
-                            "-c",
-                            str(config_path),
-                            stdout=asyncio.subprocess.PIPE,
-                            stderr=asyncio.subprocess.PIPE,
-                            creationflags=cflags,
-                        )
-                        await asyncio.sleep(0.1)
+                    process = await asyncio.create_subprocess_exec(
+                        self.executable,
+                        "run",
+                        "-c",
+                        str(config_path),
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE,
+                        creationflags=cflags,
+                    )
 
                     is_ready = await self._wait_for_port(port, process)
 
@@ -130,7 +119,7 @@ class XrayRunnerPool:
                         pass
                 await self.port_manager.release_port(port)
 
-    async def check_download_speed(self, proxy_config) -> float:
+    async def check_download_speed(self, proxy_config, max_size_kb: int = 500) -> float:
         async with self.semaphore:
             port = await self.port_manager.get_free_port()
             process = None
@@ -141,30 +130,25 @@ class XrayRunnerPool:
                     with open(config_path, "w", encoding="utf-8") as f:
                         json.dump(xray_json, f)
 
-                    async with self.spawn_lock:
+                    cflags = (
+                        subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+                    )
 
-                        cflags = (
-                            subprocess.CREATE_NO_WINDOW
-                            if sys.platform == "win32"
-                            else 0
-                        )
-
-                        process = await asyncio.create_subprocess_exec(
-                            self.executable,
-                            "run",
-                            "-c",
-                            str(config_path),
-                            stdout=asyncio.subprocess.PIPE,
-                            stderr=asyncio.subprocess.PIPE,
-                            creationflags=cflags,
-                        )
-                        await asyncio.sleep(0.1)
+                    process = await asyncio.create_subprocess_exec(
+                        self.executable,
+                        "run",
+                        "-c",
+                        str(config_path),
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE,
+                        creationflags=cflags,
+                    )
 
                     is_ready = await self._wait_for_port(port, process)
                     if not is_ready:
                         return 0.0
 
-                    return await self.checker.check_speed(port)
+                    return await self.checker.check_speed(port, max_size_kb)
             except Exception as e:
                 logger.error(f"Speed Test Error: {e}")
                 return 0.0

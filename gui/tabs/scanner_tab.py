@@ -74,17 +74,30 @@ class ScannerTab(QWidget):
         self.spin_timeout.setFixedHeight(32)
         self.spin_timeout.setStyleSheet(safe_spinbox_style)
 
+        self.lbl_concurrent = QLabel()
+        self.lbl_timeout = QLabel()
+
+        self.lbl_speed_size = QLabel("حجم تست سرعت:")
+        self.cmb_speed_size = QComboBox()
+        self.cmb_speed_size.addItem(LanguageManager.tr("scn_speed_200"), 200)
+        self.cmb_speed_size.addItem(LanguageManager.tr("scn_speed_500"), 500)
+        self.cmb_speed_size.addItem(LanguageManager.tr("scn_speed_2000"), 2000)
+        self.cmb_speed_size.setCurrentIndex(1)
+        self.cmb_speed_size.setFixedHeight(32)
+
         toolbar.addWidget(self.btn_load_untested)
         toolbar.addWidget(self.btn_load_all)
         toolbar.addStretch()
 
-        self.lbl_concurrent = QLabel()
         toolbar.addWidget(self.lbl_concurrent)
         toolbar.addWidget(self.spin_concurrent)
 
-        self.lbl_timeout = QLabel()
         toolbar.addWidget(self.lbl_timeout)
         toolbar.addWidget(self.spin_timeout)
+        toolbar.addSpacing(10)
+
+        toolbar.addWidget(self.lbl_speed_size)
+        toolbar.addWidget(self.cmb_speed_size)
         toolbar.addSpacing(10)
 
         self.btn_scan_selected = QPushButton()
@@ -181,13 +194,13 @@ class ScannerTab(QWidget):
         layout.addWidget(self.table_view)
 
     def retranslate_ui(self):
-
         self.lbl_archive.setText(LanguageManager.tr("scn_lbl_archive"))
         self.btn_refresh.setText(LanguageManager.tr("scn_btn_refresh"))
         self.btn_load_untested.setText(LanguageManager.tr("scn_btn_load_untested"))
         self.btn_load_all.setText(LanguageManager.tr("scn_btn_load_all"))
         self.lbl_concurrent.setText(LanguageManager.tr("scn_lbl_concurrent"))
         self.lbl_timeout.setText(LanguageManager.tr("scn_lbl_timeout"))
+        self.lbl_speed_size.setText(LanguageManager.tr("scn_lbl_speed_size"))
         self.btn_scan_selected.setText(LanguageManager.tr("scn_btn_scan_sel"))
         self.btn_start.setText(LanguageManager.tr("scn_btn_scan_all"))
         self.btn_stop.setText(LanguageManager.tr("scn_btn_stop"))
@@ -210,6 +223,11 @@ class ScannerTab(QWidget):
         status_text = self.lbl_status.text()
         if not status_text or status_text in ["آماده", "Ready"]:
             self.lbl_status.setText(LanguageManager.tr("scn_status_ready"))
+
+        if hasattr(self, "cmb_speed_size") and self.cmb_speed_size.count() >= 3:
+            self.cmb_speed_size.setItemText(0, LanguageManager.tr("scn_speed_200"))
+            self.cmb_speed_size.setItemText(1, LanguageManager.tr("scn_speed_500"))
+            self.cmb_speed_size.setItemText(2, LanguageManager.tr("scn_speed_2000"))
 
     def _load_groups(self):
         self.worker_groups = AsyncTaskWorker(self.repository.get_groups())
@@ -319,6 +337,7 @@ class ScannerTab(QWidget):
         self.spin_concurrent.setEnabled(False)
         self.spin_timeout.setEnabled(False)
         self.cmb_group.setEnabled(False)
+        self.cmb_speed_size.setEnabled(False)
 
         self.scanned_count = 0
         self.total_to_scan = len(proxies_to_scan)
@@ -381,6 +400,7 @@ class ScannerTab(QWidget):
         self.btn_stop.setEnabled(False)
         self.spin_concurrent.setEnabled(True)
         self.spin_timeout.setEnabled(True)
+        self.cmb_speed_size.setEnabled(True)
 
     def show_context_menu(self, pos):
         index = self.table_view.indexAt(pos)
@@ -438,6 +458,7 @@ class ScannerTab(QWidget):
         self.btn_start.setEnabled(False)
         self.btn_scan_selected.setEnabled(False)
         self.cmb_group.setEnabled(False)
+        self.cmb_speed_size.setEnabled(False)
 
         self.lbl_status.show()
         self.progress_bar.show()
@@ -449,7 +470,12 @@ class ScannerTab(QWidget):
             )
         )
         self.lbl_status.setStyleSheet("color: #0097e6; font-weight: bold;")
-        self.speed_worker = SpeedTestWorker(self.scan_service, proxies)
+
+        selected_size = self.cmb_speed_size.currentData()
+        self.speed_worker = SpeedTestWorker(
+            self.scan_service, proxies, max_size_kb=selected_size
+        )
+
         self.speed_worker.progress_signal.connect(self._on_speed_progress)
         self.speed_worker.finished_signal.connect(self._on_speed_finished)
         self.speed_worker.start()
@@ -472,10 +498,8 @@ class ScannerTab(QWidget):
             LanguageManager.tr("scn_msg_speed_done_title"),
             LanguageManager.tr("scn_msg_speed_done_body"),
         )
-
         self.lbl_status.setStyleSheet("")
         self._reset_buttons()
-
         self.refresh_data()
 
     def _move_multiple_proxies(self, proxies):
@@ -563,7 +587,12 @@ class ScannerTab(QWidget):
             LanguageManager.tr("scn_msg_speed_test_title"),
             LanguageManager.tr("scn_msg_speed_test_body"),
         )
-        self.worker_speed = AsyncTaskWorker(self.scan_service.test_speed(proxy))
+
+        selected_size = self.cmb_speed_size.currentData()
+        self.worker_speed = AsyncTaskWorker(
+            self.scan_service.test_speed(proxy, max_size_kb=selected_size)
+        )
+
         self.worker_speed.finished_signal.connect(
             lambda speed: self._on_speed_tested(proxy, speed)
         )

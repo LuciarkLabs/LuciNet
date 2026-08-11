@@ -82,23 +82,47 @@ class XrayChecker:
             )
             return ScanResult(status="Timeout", error_message="Timeout")
 
-    async def check_speed(self, local_port: int) -> float:
+    async def check_speed(self, local_port: int, max_size_kb: int = 500) -> float:
+\
+\
+
         start_time = time.time()
         try:
             proxy_url = f"http://127.0.0.1:{local_port}"
+            timeout = aiohttp.ClientTimeout(total=15)
 
-            timeout = aiohttp.ClientTimeout(total=20)
             async with aiohttp.ClientSession(timeout=timeout) as session:
 
-                test_url = "http://speed.cloudflare.com/__down?bytes=2097152"
-                async with session.get(test_url, proxy=proxy_url) as response:
-                    if response.status == 200:
-                        data = await response.read()
-                        duration = time.time() - start_time
-                        if duration > 0:
+                headers = {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    "Accept": "*/*",
+                    "Connection": "keep-alive",
+                }
 
-                            speed_bps = len(data) / duration
+                test_url = "https://proof.ovh.net/files/10Mb.dat"
+
+                async with session.get(
+                    test_url, proxy=proxy_url, headers=headers
+                ) as response:
+                    if response.status == 200:
+                        bytes_to_read = max_size_kb * 1024
+                        total_downloaded = 0
+
+                        while total_downloaded < bytes_to_read:
+                            chunk = await response.content.read(8192)
+                            if not chunk:
+                                break
+                            total_downloaded += len(chunk)
+
+                        duration = time.time() - start_time
+
+                        if duration > 0 and total_downloaded > 0:
+                            speed_bps = total_downloaded / duration
                             return round(speed_bps / (1024 * 1024), 2)
+                    else:
+                        logger.debug(
+                            f"Speed test rejected. HTTP Status: {response.status}"
+                        )
         except Exception as e:
             logger.debug(f"Speed test failed: {e}")
         return 0.0
