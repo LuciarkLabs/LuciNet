@@ -7,7 +7,7 @@ from utils.logger import get_logger
 
 logger = get_logger("Database")
 
-CURRENT_DB_VERSION = 4
+CURRENT_DB_VERSION = 5
 
 class SQLiteProxyRepository(BaseProxyRepository):
     def __init__(self, db_path: str = str(AppConfig.DB_PATH)):
@@ -74,6 +74,17 @@ class SQLiteProxyRepository(BaseProxyRepository):
                 "ALTER TABLE proxies ADD COLUMN download_speed REAL DEFAULT 0.0"
             )
             await db.execute("UPDATE schema_version SET version = 4")
+            current_version = 4
+
+        if current_version == 4:
+            logger.info("Migrating to V5: Adding indexes for performance...")
+            await db.execute(
+                "CREATE INDEX IF NOT EXISTS idx_group_name ON proxies(group_name);"
+            )
+            await db.execute(
+                "CREATE INDEX IF NOT EXISTS idx_status ON proxies(status);"
+            )
+            await db.execute("UPDATE schema_version SET version = 5")
 
         await db.commit()
 

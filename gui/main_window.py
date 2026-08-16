@@ -11,13 +11,13 @@ from PySide6.QtWidgets import (
     QPushButton,
 )
 from PySide6.QtCore import Qt
-from gui.tabs.input_tab import InputTab
-from gui.tabs.archive_tab import ArchiveTab
-from gui.tabs.scanner_tab import ScannerTab
-from gui.tabs.rename_tab import RenameTab
-from gui.tabs.export_tab import ExportTab
-from gui.tabs.dashboard_tab import DashboardTab
-from gui.tabs.about_tab import AboutTab
+from gui.tabs.input.tab_main import InputTab
+from gui.tabs.archive.tab_main import ArchiveTab
+from gui.tabs.scanner.tab_main import ScannerTab
+from gui.tabs.rename.tab_main import RenameTab
+from gui.tabs.export.tab_main import ExportTab
+from gui.tabs.dashboard.tab_main import DashboardTab
+from gui.tabs.about.tab_main import AboutTab
 from gui.theme_manager import ThemeManager
 from gui.language_manager import LanguageManager
 

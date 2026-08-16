@@ -1,17 +1,15 @@
 import os
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QHBoxLayout
-from PySide6.QtCore import Qt, QUrl
-from PySide6.QtGui import QDesktopServices, QPixmap
-from gui.language_manager import LanguageManager
+from PySide6.QtWidgets import QVBoxLayout, QLabel, QPushButton, QHBoxLayout, QSizePolicy
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QPixmap
 
-class AboutTab(QWidget):
-    def __init__(self):
-        super().__init__()
-        self._setup_ui()
-        self.retranslate_ui()
+class AboutUiLayout:
+    def setup_ui(self, parent_widget):
+\
+\
+\
 
-    def _setup_ui(self):
-        layout = QVBoxLayout(self)
+        layout = QVBoxLayout(parent_widget)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.lbl_logo = QLabel()
@@ -37,7 +35,6 @@ class AboutTab(QWidget):
             )
             self.lbl_logo.setPixmap(pixmap)
         else:
-
             self.lbl_logo.setText("🚀")
             self.lbl_logo.setStyleSheet("font-size: 80px; background: transparent;")
 
@@ -57,7 +54,7 @@ class AboutTab(QWidget):
         )
         layout.addWidget(self.lbl_brand)
 
-        self.lbl_version = QLabel("v1.1.0")
+        self.lbl_version = QLabel("v1.2.0")
         self.lbl_version.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_version.setStyleSheet(
             "font-size: 13px; color: #7f8fa6; margin-bottom: 25px; background: transparent;"
@@ -83,21 +80,35 @@ class AboutTab(QWidget):
         self.btn_github = QPushButton()
         self.btn_github.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_github.setStyleSheet(
-            "background-color: #2f3640; color: white; font-weight: bold; border-radius: 8px; padding: 12px 35px; font-size: 14px;"
+            "background-color: #2f3640; color: white; font-weight: bold; border-radius: 25px; font-size: 14px;"
+            "min-width: 140px; max-width: 140px; min-height: 39px; max-height: 39px;"
         )
-        self.btn_github.clicked.connect(self.open_github)
 
-        btn_layout = QHBoxLayout()
-        btn_layout.addStretch()
-        btn_layout.addWidget(self.btn_github)
-        btn_layout.addStretch()
-        layout.addLayout(btn_layout)
+        self.btn_telegram = QPushButton()
+        self.btn_telegram.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_telegram.setStyleSheet(
+            "background-color: #00a8ff; color: white; font-weight: bold; border-radius: 25px; font-size: 14px;"
+            "min-width: 140px; max-width: 140px; min-height: 39px; max-height: 39px;"
+        )
 
-    def retranslate_ui(self):
+        self.btn_update = QPushButton()
+        self.btn_update.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_update.setStyleSheet(
+            "background-color: #44bd32; color: white; font-weight: bold; border-radius: 25px; font-size: 14px;"
+            "min-width: 145px; max-width: 145px; min-height: 39px; max-height: 39px;"
+        )
 
-        self.lbl_desc.setText(LanguageManager.tr("abt_desc"))
-        self.btn_github.setText(LanguageManager.tr("abt_btn_github"))
+        row1_layout = QHBoxLayout()
+        row1_layout.addStretch()
+        row1_layout.addWidget(self.btn_telegram)
+        row1_layout.addWidget(self.btn_github)
+        row1_layout.addStretch()
 
-    def open_github(self):
+        row2_layout = QHBoxLayout()
+        row2_layout.addStretch()
+        row2_layout.addWidget(self.btn_update)
+        row2_layout.addStretch()
 
-        QDesktopServices.openUrl(QUrl("https://github.com/LuciarkLabs/LuciNet"))
+        layout.addLayout(row1_layout)
+        layout.addSpacing(5)
+        layout.addLayout(row2_layout)

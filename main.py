@@ -1,4 +1,5 @@
 import sys
+import os
 import asyncio
 import time
 from PySide6.QtWidgets import QApplication, QSplashScreen
@@ -13,6 +14,17 @@ from scanner.checker import XrayChecker
 from scanner.xray_runner import XrayRunnerPool
 from services.scan_service import ScanService
 from gui.main_window import MainWindow
+
+def get_resource_path(relative_path):
+\
+\
+\
+
+    if getattr(sys, "frozen", False):
+        base_path = sys._MEIPASS
+    else:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
 
 def setup_dependencies():
 \
@@ -42,9 +54,11 @@ def main():
 
     app = QApplication(sys.argv)
 
-    app.setWindowIcon(QIcon("assets/icon.ico"))
+    icon_path = get_resource_path("assets/icon.ico")
+    app.setWindowIcon(QIcon(icon_path))
 
-    splash_pix = QPixmap("assets/splash.PNG")
+    splash_path = get_resource_path("assets/splash.PNG")
+    splash_pix = QPixmap(splash_path)
     splash = QSplashScreen(splash_pix, Qt.WindowType.WindowStaysOnTopHint)
     splash.show()
     app.processEvents()
@@ -60,7 +74,7 @@ def main():
     )
     app.processEvents()
 
-    time.sleep(1.25)
+    time.sleep(1)
 
     print("Initializing Core Services and Database...")
     parser_factory, repository, scan_service = setup_dependencies()
@@ -77,7 +91,7 @@ def main():
     window = MainWindow(
         parser_factory=parser_factory, repository=repository, scan_service=scan_service
     )
-    window.setWindowIcon(QIcon("assets/icon.ico"))
+    window.setWindowIcon(QIcon(icon_path))
     window.show()
 
     splash.finish(window)

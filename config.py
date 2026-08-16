@@ -1,11 +1,20 @@
 import os
+import sys
 from dataclasses import dataclass
 from pathlib import Path
+
+if getattr(sys, "frozen", False):
+
+    ROOT_DIR = Path(sys.executable).parent
+else:
+
+    ROOT_DIR = Path(__file__).parent.resolve()
 
 @dataclass
 class AppConfig:
 
-    BASE_DIR: Path = Path(__file__).parent.resolve()
+    BASE_DIR: Path = ROOT_DIR
+
     DATA_DIR: Path = BASE_DIR / "data"
     DB_PATH: Path = DATA_DIR / "lucinet_archive.db"
 
@@ -15,8 +24,6 @@ class AppConfig:
     MAX_CONCURRENT_SCANS: int = 50
     SCAN_TIMEOUT_SECONDS: int = 15
     TEST_URL: str = "http://www.gstatic.com/generate_204"
-    BASE_LOCAL_PORT: int = 10800
-
     BASE_LOCAL_PORT: int = 10800
 
     @classmethod

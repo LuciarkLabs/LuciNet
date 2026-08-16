@@ -1,226 +1,150 @@
 from PySide6.QtWidgets import (
     QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
-    QPushButton,
-    QTableView,
-    QHeaderView,
-    QLabel,
-    QComboBox,
     QMessageBox,
     QInputDialog,
     QMenu,
-    QLineEdit,
-    QGroupBox,
-    QProgressBar,
+    QApplication,
+    QHeaderView,
 )
-from PySide6.QtWidgets import QApplication
-from PySide6.QtCore import Qt
-from gui.workers import AsyncTaskWorker, ScanWorker, SpeedTestWorker
+from gui.workers import AsyncTaskWorker, SpeedTestWorker
 from gui.models.proxy_table_model import ProxyTableModel, ProxySortModel
 from gui.widgets.qr_dialog import QRDialog
 from gui.language_manager import LanguageManager
+from .ui_layout import ArchiveUiLayout
+from gui.event_bus import event_bus
 
 class ArchiveTab(QWidget):
     def __init__(self, repository, scan_service):
         super().__init__()
         self.repository = repository
         self.scan_service = scan_service
+
+        self.is_db_locked = False
+
+        self.ui = ArchiveUiLayout()
+        self.ui.setup_ui(self)
+
         self.model = ProxyTableModel([])
-        self._setup_ui()
-        self.load_data()
-        self.retranslate_ui()
-
-    def _setup_ui(self):
-        layout = QVBoxLayout(self)
-        toolbar = QHBoxLayout()
-
-        self.lbl_archive = QLabel()
-        toolbar.addWidget(self.lbl_archive)
-
-        self.cmb_filter = QComboBox()
-        self.cmb_filter.addItem("")
-        self.cmb_filter.currentIndexChanged.connect(self.on_filter_changed)
-        toolbar.addWidget(self.cmb_filter)
-
-        self.btn_new_group = QPushButton()
-        self.btn_new_group.setStyleSheet("color: #44bd32; font-weight: bold;")
-        self.btn_new_group.clicked.connect(self.create_new_group)
-        toolbar.addWidget(self.btn_new_group)
-
-        self.btn_rename_group = QPushButton()
-        self.btn_rename_group.clicked.connect(self.rename_current_group)
-        self.btn_delete_group = QPushButton()
-        self.btn_delete_group.setStyleSheet("color: #e84118; font-weight: bold;")
-        self.btn_delete_group.clicked.connect(self.delete_current_group)
-
-        toolbar.addWidget(self.btn_rename_group)
-        toolbar.addWidget(self.btn_delete_group)
-
-        self.btn_tools = QPushButton()
-        self.btn_tools.setStyleSheet("font-weight: bold;")
-        tools_menu = QMenu(self)
-
-        self.action_move = tools_menu.addAction("")
-        self.action_move.triggered.connect(self.move_selected)
-        tools_menu.addSeparator()
-
-        self.action_dedup = tools_menu.addAction("")
-        self.action_dedup.triggered.connect(self.remove_duplicates)
-        tools_menu.addSeparator()
-
-        self.action_del_sel = tools_menu.addAction("")
-        self.action_del_sel.triggered.connect(self.delete_selected)
-        self.action_del_inv = tools_menu.addAction("")
-        self.action_del_inv.triggered.connect(self.delete_invalid)
-        self.action_del_tout = tools_menu.addAction("")
-        self.action_del_tout.triggered.connect(self.delete_timeout)
-
-        self.btn_tools.setMenu(tools_menu)
-        toolbar.addWidget(self.btn_tools)
-        toolbar.addStretch()
-        layout.addLayout(toolbar)
-
-        self.filter_group = QGroupBox()
-
-        self.filter_group.setStyleSheet("""
-            QGroupBox {
-                font-weight: bold;
-                margin-top: 30px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                subcontrol-position: top center;
-                top: 0px;
-                padding: 4px 10px;
-            }
-        """)
-
-        filter_layout = QHBoxLayout(self.filter_group)
-
-        self.lbl_search = QLabel()
-        self.txt_search = QLineEdit()
-        self.txt_search.textChanged.connect(self.apply_adv_filters)
-
-        self.lbl_status_filter = QLabel()
-        self.cmb_status = QComboBox()
-        self.cmb_status.addItems(
-            ["", "Valid", "Invalid", "Timeout", "Error", "Untested"]
-        )
-        self.cmb_status.currentIndexChanged.connect(self.apply_adv_filters)
-
-        self.lbl_protocol_filter = QLabel()
-        self.cmb_protocol = QComboBox()
-        self.cmb_protocol.addItems(["", "vless", "vmess", "trojan", "ss"])
-        self.cmb_protocol.currentIndexChanged.connect(self.apply_adv_filters)
-
-        filter_layout.addWidget(self.lbl_search)
-        filter_layout.addWidget(self.txt_search)
-        filter_layout.addWidget(self.lbl_status_filter)
-        filter_layout.addWidget(self.cmb_status)
-        filter_layout.addWidget(self.lbl_protocol_filter)
-        filter_layout.addWidget(self.cmb_protocol)
-
-        layout.addWidget(self.filter_group)
-
-        self.table_view = QTableView()
         self.proxy_model = ProxySortModel()
         self.proxy_model.setSourceModel(self.model)
-        self.table_view.setModel(self.proxy_model)
-        self.table_view.setSortingEnabled(True)
-        self.table_view.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
+        self.ui.table_view.setModel(self.proxy_model)
 
-        header = self.table_view.horizontalHeader()
+        header = self.ui.table_view.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
 
-        self.table_view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.table_view.customContextMenuRequested.connect(self.show_context_menu)
+        self._connect_signals()
 
-        layout.addWidget(self.table_view)
+        self.load_data()
+        self.retranslate_ui()
 
-        bottom_layout = QHBoxLayout()
+    def _connect_signals(self):
 
-        self.lbl_count = QLabel()
-        self.lbl_count.setStyleSheet("font-weight: bold;")
-        bottom_layout.addWidget(self.lbl_count)
+        self.ui.cmb_filter.currentIndexChanged.connect(self.on_filter_changed)
+        self.ui.btn_new_group.clicked.connect(self.create_new_group)
+        self.ui.btn_rename_group.clicked.connect(self.rename_current_group)
+        self.ui.btn_delete_group.clicked.connect(self.delete_current_group)
+        self.ui.btn_refresh.clicked.connect(self.load_data)
 
-        bottom_layout.addSpacing(20)
+        self.ui.txt_search.textChanged.connect(self.apply_adv_filters)
+        self.ui.cmb_status.currentIndexChanged.connect(self.apply_adv_filters)
+        self.ui.cmb_protocol.currentIndexChanged.connect(self.apply_adv_filters)
 
-        self.lbl_status = QLabel()
-        self.lbl_status.setStyleSheet("color: #0097e6; font-weight: bold;")
-        self.lbl_status.hide()
-        bottom_layout.addWidget(self.lbl_status)
+        self.ui.action_move.triggered.connect(self.move_selected)
+        self.ui.action_dedup.triggered.connect(self.remove_duplicates)
 
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setValue(0)
-        self.progress_bar.hide()
-        bottom_layout.addWidget(self.progress_bar)
+        self.ui.action_del_inv.triggered.connect(self.delete_invalid)
+        self.ui.action_del_tout.triggered.connect(self.delete_timeout)
 
-        bottom_layout.addStretch()
+        self.ui.table_view.customContextMenuRequested.connect(self.show_context_menu)
 
-        self.btn_refresh = QPushButton()
-        self.btn_refresh.clicked.connect(self.load_data)
-        bottom_layout.addWidget(self.btn_refresh)
+        event_bus.data_changed.connect(self.load_data)
 
-        layout.addLayout(bottom_layout)
+        event_bus.scan_lock_changed.connect(self.on_scan_lock_changed)
 
     def retranslate_ui(self):
 
-        self.lbl_archive.setText(LanguageManager.tr("arc_lbl_archive"))
-        self.btn_new_group.setText(LanguageManager.tr("arc_btn_new_archive"))
-        self.btn_rename_group.setText(LanguageManager.tr("arc_btn_rename"))
-        self.btn_delete_group.setText(LanguageManager.tr("arc_btn_delete"))
-        self.btn_tools.setText(LanguageManager.tr("arc_btn_tools"))
+        self.ui.lbl_archive.setText(LanguageManager.tr("arc_lbl_archive"))
+        self.ui.btn_new_group.setText(LanguageManager.tr("arc_btn_new_archive"))
+        self.ui.btn_rename_group.setText(LanguageManager.tr("arc_btn_rename"))
+        self.ui.btn_delete_group.setText(LanguageManager.tr("arc_btn_delete"))
+        self.ui.btn_tools.setText(LanguageManager.tr("arc_btn_tools"))
 
-        self.action_move.setText(LanguageManager.tr("arc_menu_move"))
-        self.action_dedup.setText(LanguageManager.tr("arc_menu_dedup"))
-        self.action_del_sel.setText(LanguageManager.tr("arc_menu_del_sel"))
-        self.action_del_inv.setText(LanguageManager.tr("arc_menu_del_inv"))
-        self.action_del_tout.setText(LanguageManager.tr("arc_menu_del_tout"))
+        self.ui.action_move.setText(LanguageManager.tr("arc_menu_move"))
+        self.ui.action_dedup.setText(LanguageManager.tr("arc_menu_dedup"))
+        self.ui.action_del_inv.setText(LanguageManager.tr("arc_menu_del_inv"))
+        self.ui.action_del_tout.setText(LanguageManager.tr("arc_menu_del_tout"))
 
-        self.filter_group.setTitle(LanguageManager.tr("arc_group_filter"))
-        self.txt_search.setPlaceholderText(LanguageManager.tr("arc_placeholder_search"))
-        self.lbl_search.setText(LanguageManager.tr("arc_lbl_search"))
-        self.lbl_status_filter.setText(LanguageManager.tr("arc_lbl_status"))
-        self.lbl_protocol_filter.setText(LanguageManager.tr("arc_lbl_protocol"))
+        self.ui.filter_group.setTitle(LanguageManager.tr("arc_group_filter"))
+        self.ui.txt_search.setPlaceholderText(
+            LanguageManager.tr("arc_placeholder_search")
+        )
+        self.ui.lbl_search.setText(LanguageManager.tr("arc_lbl_search"))
+        self.ui.lbl_status_filter.setText(LanguageManager.tr("arc_lbl_status"))
+        self.ui.lbl_protocol_filter.setText(LanguageManager.tr("arc_lbl_protocol"))
 
-        if self.cmb_filter.count() > 0:
-            self.cmb_filter.setItemText(0, LanguageManager.tr("arc_cmb_all_archives"))
-        if self.cmb_status.count() > 0:
-            self.cmb_status.setItemText(0, LanguageManager.tr("arc_cmb_all_statuses"))
-        if self.cmb_protocol.count() > 0:
-            self.cmb_protocol.setItemText(
+        if self.ui.cmb_filter.count() > 0:
+            self.ui.cmb_filter.setItemText(
+                0, LanguageManager.tr("arc_cmb_all_archives")
+            )
+        if self.ui.cmb_status.count() > 0:
+            self.ui.cmb_status.setItemText(
+                0, LanguageManager.tr("arc_cmb_all_statuses")
+            )
+        if self.ui.cmb_protocol.count() > 0:
+            self.ui.cmb_protocol.setItemText(
                 0, LanguageManager.tr("arc_cmb_all_protocols")
             )
 
         self.update_visible_count()
 
-        if self.btn_refresh.isEnabled():
-            self.btn_refresh.setText(LanguageManager.tr("arc_btn_refresh"))
+        if self.ui.btn_refresh.isEnabled():
+            self.ui.btn_refresh.setText(LanguageManager.tr("arc_btn_refresh"))
         else:
-            self.btn_refresh.setText(LanguageManager.tr("arc_btn_loading"))
+            self.ui.btn_refresh.setText(LanguageManager.tr("arc_btn_loading"))
 
-        status_text = self.lbl_status.text()
+        status_text = self.ui.lbl_status.text()
         if status_text in ["آماده", "Ready"]:
-            self.lbl_status.setText(LanguageManager.tr("arc_status_ready"))
+            self.ui.lbl_status.setText(LanguageManager.tr("arc_status_ready"))
+
+    def on_scan_lock_changed(self, is_locked, group_name):
+
+        self.is_db_locked = is_locked
+
+        self.ui.btn_new_group.setEnabled(not is_locked)
+        self.ui.btn_tools.setEnabled(not is_locked)
+        self.ui.btn_refresh.setEnabled(
+            not is_locked
+        )
+
+        if is_locked:
+            self.ui.btn_rename_group.setEnabled(False)
+            self.ui.btn_delete_group.setEnabled(False)
+        else:
+
+            is_specific_group = bool(self.ui.cmb_filter.currentData())
+            self.ui.btn_rename_group.setEnabled(is_specific_group)
+            self.ui.btn_delete_group.setEnabled(is_specific_group)
 
     def on_filter_changed(self):
-        group = self.cmb_filter.currentData()
+        group = self.ui.cmb_filter.currentData()
         self.proxy_model.set_group_filter(group)
         is_specific_group = bool(group)
-        self.btn_rename_group.setEnabled(is_specific_group)
-        self.btn_delete_group.setEnabled(is_specific_group)
+
+        if not self.is_db_locked:
+            self.ui.btn_rename_group.setEnabled(is_specific_group)
+            self.ui.btn_delete_group.setEnabled(is_specific_group)
+
         self.update_visible_count()
 
     def apply_adv_filters(self):
-        status_idx = self.cmb_status.currentIndex()
-        status = self.cmb_status.currentText() if status_idx > 0 else ""
+        status_idx = self.ui.cmb_status.currentIndex()
+        status = self.ui.cmb_status.currentText() if status_idx > 0 else ""
 
-        protocol_idx = self.cmb_protocol.currentIndex()
-        protocol = self.cmb_protocol.currentText() if protocol_idx > 0 else ""
+        protocol_idx = self.ui.cmb_protocol.currentIndex()
+        protocol = self.ui.cmb_protocol.currentText() if protocol_idx > 0 else ""
 
-        search_txt = self.txt_search.text().strip()
+        search_txt = self.ui.txt_search.text().strip()
 
         self.proxy_model.set_status_filter(status)
         self.proxy_model.set_protocol_filter(protocol)
@@ -230,7 +154,7 @@ class ArchiveTab(QWidget):
 
     def update_visible_count(self):
         visible_count = self.proxy_model.rowCount()
-        self.lbl_count.setText(
+        self.ui.lbl_count.setText(
             LanguageManager.tr("arc_lbl_count").format(count=visible_count)
         )
 
@@ -243,14 +167,15 @@ class ArchiveTab(QWidget):
         if ok and new_name.strip():
             new_name = new_name.strip()
             existing_groups = [
-                self.cmb_filter.itemData(i) for i in range(self.cmb_filter.count())
+                self.ui.cmb_filter.itemData(i)
+                for i in range(self.ui.cmb_filter.count())
             ]
             if new_name not in existing_groups:
-                self.cmb_filter.addItem(new_name, new_name)
+                self.ui.cmb_filter.addItem(new_name, new_name)
 
-            idx = self.cmb_filter.findData(new_name)
+            idx = self.ui.cmb_filter.findData(new_name)
             if idx >= 0:
-                self.cmb_filter.setCurrentIndex(idx)
+                self.ui.cmb_filter.setCurrentIndex(idx)
 
             QMessageBox.information(
                 self,
@@ -259,7 +184,7 @@ class ArchiveTab(QWidget):
             )
 
     def rename_current_group(self):
-        current_group = self.cmb_filter.currentData()
+        current_group = self.ui.cmb_filter.currentData()
         if not current_group:
             return
         new_name, ok = QInputDialog.getText(
@@ -271,11 +196,13 @@ class ArchiveTab(QWidget):
             self.worker_rename = AsyncTaskWorker(
                 self.repository.rename_group(current_group, new_name.strip())
             )
-            self.worker_rename.finished_signal.connect(lambda _: self.load_data())
+            self.worker_rename.finished_signal.connect(
+                lambda _: event_bus.data_changed.emit()
+            )
             self.worker_rename.start()
 
     def delete_current_group(self):
-        current_group = self.cmb_filter.currentData()
+        current_group = self.ui.cmb_filter.currentData()
         if not current_group:
             return
         reply = QMessageBox.question(
@@ -289,11 +216,13 @@ class ArchiveTab(QWidget):
             self.worker_delete = AsyncTaskWorker(
                 self.repository.delete_group(current_group)
             )
-            self.worker_delete.finished_signal.connect(lambda _: self.load_data())
+            self.worker_delete.finished_signal.connect(
+                lambda _: event_bus.data_changed.emit()
+            )
             self.worker_delete.start()
 
     def get_selected_ids(self):
-        selected_indexes = self.table_view.selectionModel().selectedRows()
+        selected_indexes = self.ui.table_view.selectionModel().selectedRows()
         ids = []
         for index in selected_indexes:
             source_index = self.proxy_model.mapToSource(index)
@@ -313,7 +242,7 @@ class ArchiveTab(QWidget):
             return
 
         groups = [
-            self.cmb_filter.itemData(i) for i in range(1, self.cmb_filter.count())
+            self.ui.cmb_filter.itemData(i) for i in range(1, self.ui.cmb_filter.count())
         ]
         if "Default" not in groups:
             groups.insert(0, "Default")
@@ -351,7 +280,7 @@ class ArchiveTab(QWidget):
             self._execute_delete(ids)
 
     def delete_invalid(self):
-        current_group = self.cmb_filter.currentData()
+        current_group = self.ui.cmb_filter.currentData()
         ids = [
             p.id
             for p in self.model.proxies
@@ -376,7 +305,7 @@ class ArchiveTab(QWidget):
             self._execute_delete(ids)
 
     def delete_timeout(self):
-        current_group = self.cmb_filter.currentData()
+        current_group = self.ui.cmb_filter.currentData()
         ids = [
             p.id
             for p in self.model.proxies
@@ -401,7 +330,7 @@ class ArchiveTab(QWidget):
             self._execute_delete(ids)
 
     def remove_duplicates(self):
-        current_group = self.cmb_filter.currentData()
+        current_group = self.ui.cmb_filter.currentData()
         proxies_to_check = [
             p
             for p in self.model.proxies
@@ -470,56 +399,62 @@ class ArchiveTab(QWidget):
 
     def _on_action_finished(self, msg):
         QMessageBox.information(self, LanguageManager.tr("arc_msg_op_success"), msg)
-        self.load_data()
+        event_bus.data_changed.emit()
 
     def load_data(self):
-        self.btn_refresh.setEnabled(False)
-        self.btn_refresh.setText(LanguageManager.tr("arc_btn_loading"))
+        if self.is_db_locked:
+            return
+        self.ui.btn_refresh.setEnabled(False)
+        self.ui.btn_refresh.setText(LanguageManager.tr("arc_btn_loading"))
         self.worker = AsyncTaskWorker(self.repository.get_all())
         self.worker.finished_signal.connect(self._on_data_loaded)
         self.worker.error_signal.connect(self._on_data_error)
         self.worker.start()
 
     def _on_data_loaded(self, proxies):
-        self.btn_refresh.setEnabled(True)
-        self.btn_refresh.setText(LanguageManager.tr("arc_btn_refresh"))
+        self.ui.btn_refresh.setEnabled(True)
+        self.ui.btn_refresh.setText(LanguageManager.tr("arc_btn_refresh"))
         self.model.update_data(proxies)
 
-        current_filter = self.cmb_filter.currentData()
+        current_filter = self.ui.cmb_filter.currentData()
         groups = sorted(list(set(p.group_name for p in proxies)))
 
         if current_filter and current_filter not in groups:
             groups.append(current_filter)
 
-        self.cmb_filter.blockSignals(True)
-        self.cmb_filter.clear()
-        self.cmb_filter.addItem(LanguageManager.tr("arc_cmb_all_archives"), "")
+        self.ui.cmb_filter.blockSignals(True)
+        self.ui.cmb_filter.clear()
+        self.ui.cmb_filter.addItem(LanguageManager.tr("arc_cmb_all_archives"), "")
         for g in groups:
             if g:
-                self.cmb_filter.addItem(g, g)
+                self.ui.cmb_filter.addItem(f"📂 {g}", g)
 
-        index = self.cmb_filter.findData(current_filter)
+        index = self.ui.cmb_filter.findData(current_filter)
         if index >= 0:
-            self.cmb_filter.setCurrentIndex(index)
+            self.ui.cmb_filter.setCurrentIndex(index)
         else:
-            self.cmb_filter.setCurrentIndex(0)
-        self.cmb_filter.blockSignals(False)
+            self.ui.cmb_filter.setCurrentIndex(0)
+        self.ui.cmb_filter.blockSignals(False)
 
         self.on_filter_changed()
 
     def _on_data_error(self, err_msg):
-        self.btn_refresh.setEnabled(True)
-        self.btn_refresh.setText(LanguageManager.tr("arc_btn_refresh"))
-        self.lbl_status.show()
-        self.lbl_status.setText(LanguageManager.tr("arc_status_db_error"))
-        self.lbl_status.setStyleSheet("color: red;")
+        self.ui.btn_refresh.setEnabled(True)
+        self.ui.btn_refresh.setText(LanguageManager.tr("arc_btn_refresh"))
+        self.ui.lbl_status.show()
+        self.ui.lbl_status.setText(LanguageManager.tr("arc_status_db_error"))
+        self.ui.lbl_status.setStyleSheet("color: red;")
 
     def show_context_menu(self, pos):
-        index = self.table_view.indexAt(pos)
+
+        if self.is_db_locked:
+            return
+
+        index = self.ui.table_view.indexAt(pos)
         if not index.isValid():
             return
 
-        selected_indexes = self.table_view.selectionModel().selectedRows()
+        selected_indexes = self.ui.table_view.selectionModel().selectedRows()
         selected_proxies = []
         for idx in selected_indexes:
             source_index = self.proxy_model.mapToSource(idx)
@@ -536,9 +471,6 @@ class ArchiveTab(QWidget):
             action_copy = None
             action_qr = None
 
-        action_speed = menu.addAction(
-            LanguageManager.tr("arc_ctx_speed").format(count=len(selected_proxies))
-        )
         menu.addSeparator()
         action_move = menu.addAction(
             LanguageManager.tr("arc_ctx_move").format(count=len(selected_proxies))
@@ -547,7 +479,7 @@ class ArchiveTab(QWidget):
             LanguageManager.tr("arc_ctx_delete").format(count=len(selected_proxies))
         )
 
-        action = menu.exec(self.table_view.viewport().mapToGlobal(pos))
+        action = menu.exec(self.ui.table_view.viewport().mapToGlobal(pos))
 
         if action_copy and action == action_copy:
             QApplication.clipboard().setText(proxy.raw_url)
@@ -559,8 +491,6 @@ class ArchiveTab(QWidget):
         elif action_qr and action == action_qr:
             dialog = QRDialog(proxy.remark or "Config", proxy.raw_url, self)
             dialog.exec()
-        elif action == action_speed:
-            self._test_speed_multiple(selected_proxies)
         elif action == action_move:
             self._move_multiple_proxies(selected_proxies)
         elif action == action_delete:
@@ -570,16 +500,16 @@ class ArchiveTab(QWidget):
         self.speed_test_total = len(proxies)
         self.speed_test_current = 0
 
-        self.lbl_status.show()
-        self.progress_bar.show()
-        self.progress_bar.setMaximum(self.speed_test_total)
-        self.progress_bar.setValue(0)
-        self.lbl_status.setText(
+        self.ui.lbl_status.show()
+        self.ui.progress_bar.show()
+        self.ui.progress_bar.setMaximum(self.speed_test_total)
+        self.ui.progress_bar.setValue(0)
+        self.ui.lbl_status.setText(
             LanguageManager.tr("arc_status_speed_init").format(
                 total=self.speed_test_total
             )
         )
-        self.lbl_status.setStyleSheet("color: #0097e6; font-weight: bold;")
+        self.ui.lbl_status.setStyleSheet("color: #0097e6; font-weight: bold;")
 
         self.speed_worker = SpeedTestWorker(self.scan_service, proxies)
         self.speed_worker.progress_signal.connect(self._on_speed_progress)
@@ -588,8 +518,8 @@ class ArchiveTab(QWidget):
 
     def _on_speed_progress(self, proxy):
         self.speed_test_current += 1
-        self.progress_bar.setValue(self.speed_test_current)
-        self.lbl_status.setText(
+        self.ui.progress_bar.setValue(self.speed_test_current)
+        self.ui.lbl_status.setText(
             LanguageManager.tr("arc_status_speed_prog").format(
                 current=self.speed_test_current, total=self.speed_test_total
             )
@@ -597,21 +527,21 @@ class ArchiveTab(QWidget):
         self.model.update_proxy(proxy)
 
     def _on_speed_finished(self):
-        self.lbl_status.setText(LanguageManager.tr("arc_status_speed_done"))
-        self.lbl_status.setStyleSheet("color: #44bd32; font-weight: bold;")
+        self.ui.lbl_status.setText(LanguageManager.tr("arc_status_speed_done"))
+        self.ui.lbl_status.setStyleSheet("color: #44bd32; font-weight: bold;")
         QMessageBox.information(
             self,
             LanguageManager.tr("arc_msg_speed_done_title"),
             LanguageManager.tr("arc_msg_speed_done_body"),
         )
-        self.lbl_status.hide()
-        self.progress_bar.hide()
-        self.load_data()
+        self.ui.lbl_status.hide()
+        self.ui.progress_bar.hide()
+        event_bus.data_changed.emit()
 
     def _move_multiple_proxies(self, proxies):
         ids = [p.id for p in proxies if p.id]
         groups = [
-            self.cmb_filter.itemData(i) for i in range(1, self.cmb_filter.count())
+            self.ui.cmb_filter.itemData(i) for i in range(1, self.ui.cmb_filter.count())
         ]
         if "Default" not in groups:
             groups.insert(0, "Default")
@@ -628,7 +558,9 @@ class ArchiveTab(QWidget):
             self.worker_action = AsyncTaskWorker(
                 self.repository.update_group_many(ids, new_group.strip())
             )
-            self.worker_action.finished_signal.connect(lambda _: self.load_data())
+            self.worker_action.finished_signal.connect(
+                lambda _: event_bus.data_changed.emit()
+            )
             self.worker_action.start()
 
     def _delete_multiple_proxies(self, proxies):
@@ -641,5 +573,7 @@ class ArchiveTab(QWidget):
         )
         if reply == QMessageBox.Yes:
             self.worker_action = AsyncTaskWorker(self.repository.delete_many(ids))
-            self.worker_action.finished_signal.connect(lambda _: self.load_data())
+            self.worker_action.finished_signal.connect(
+                lambda _: event_bus.data_changed.emit()
+            )
             self.worker_action.start()
