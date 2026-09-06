@@ -25,6 +25,11 @@ class ThemeManager:
     QMenu::item:selected { background-color: #313244; }
     QProgressBar { border: 1px solid #313244; border-radius: 5px; text-align: center; color: white; background-color: #181825; }
     QProgressBar::chunk { background-color: #a6e3a1; border-radius: 5px; }
+    /* استایل‌های داینامیک سایدبار */
+    #leftSidebar { background-color: #1e272e !important; border-right: 1px solid #2f3640; }
+    #sidebarSeparator { background-color: #2f3640 !important; margin: 10px 0px; }
+    #sidebarBtn { font-weight: bold; font-size: 14px; padding: 10px 15px; border-radius: 8px; background-color: transparent !important; color: #dcdde1; border: none; text-align: left; }
+    #sidebarBtn:hover { background-color: #2f3640 !important; color: white; }
     """
 
     LIGHT_QSS = """
@@ -49,6 +54,11 @@ class ThemeManager:
     QMenu::item:selected { background-color: #f1f2f6; }
     QProgressBar { border: 1px solid #dcdde1; border-radius: 5px; text-align: center; color: #2f3640; background-color: white; }
     QProgressBar::chunk { background-color: #44bd32; border-radius: 5px; }
+    /* استایل‌های داینامیک سایدبار */
+    #leftSidebar { background-color: #ffffff !important; border-right: 1px solid #dcdde1; }
+    #sidebarSeparator { background-color: #dcdde1 !important; margin: 10px 0px; }
+    #sidebarBtn { font-weight: bold; font-size: 14px; padding: 10px 15px; border-radius: 8px; background-color: transparent !important; color: #2f3640; border: none; text-align: left; }
+    #sidebarBtn:hover { background-color: #f1f2f6 !important; color: #0097e6; }
     """
 
     @classmethod

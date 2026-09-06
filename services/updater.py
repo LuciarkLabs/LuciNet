@@ -4,7 +4,7 @@ from utils.logger import get_logger
 logger = get_logger("Updater")
 
 class UpdateChecker:
-    def __init__(self, current_version="1.2.0"):
+    def __init__(self, current_version="2.0.0"):
 
         self.current_version = current_version
 

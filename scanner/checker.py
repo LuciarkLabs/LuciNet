@@ -41,21 +41,27 @@ class XrayChecker:
                 latency_ms = round((time.time() - start_time) * 1000, 2)
 
                 outbound_ip = ""
-                try:
-                    async with session.get(
-                        "http://api.ipify.org?format=json",
-                        proxy=proxy_url,
-                        headers=headers,
-                    ) as ip_resp:
-                        if ip_resp.status == 200:
-                            ip_data = await ip_resp.json()
-                            outbound_ip = ip_data.get("ip", "")
-                except Exception:
-                    pass
-
                 country = ""
                 city = ""
                 isp = ""
+
+                try:
+                    async with session.get(
+                        "http://1.1.1.1/cdn-cgi/trace",
+                        proxy=proxy_url,
+                        headers=headers,
+                        timeout=aiohttp.ClientTimeout(total=5),
+                    ) as trace_resp:
+                        if trace_resp.status == 200:
+                            trace_text = await trace_resp.text()
+                            for line in trace_text.splitlines():
+                                if line.startswith("ip="):
+                                    outbound_ip = line.split("=")[1].strip()
+                                elif line.startswith("loc="):
+                                    country = line.split("=")[1].strip()
+                except Exception:
+                    pass
+
                 if (
                     outbound_ip
                     and hasattr(self, "geoip_service")
@@ -63,7 +69,10 @@ class XrayChecker:
                 ):
                     geo_data = await self.geoip_service.get_ip_info(outbound_ip)
                     if geo_data:
-                        country, city, isp = geo_data
+                        if not country:
+                            country = geo_data[0]
+                        city = geo_data[1]
+                        isp = geo_data[2]
 
                 return ScanResult(
                     status="Valid",

@@ -4,17 +4,33 @@ from domain.proxy import ProxyConfig
 from PySide6.QtCore import QAbstractTableModel, Qt, QSortFilterProxyModel
 from PySide6.QtGui import QColor
 import re
+import ipaddress
+
+def get_address_type(address: str) -> str:
+
+    if not address:
+        return "Unknown"
+    try:
+        ip = ipaddress.ip_address(address)
+        if isinstance(ip, ipaddress.IPv4Address):
+            return "IPv4"
+        elif isinstance(ip, ipaddress.IPv6Address):
+            return "IPv6"
+    except ValueError:
+        return "Domain"
+    return "Unknown"
 
 class ProxyTableModel(QAbstractTableModel):
     def __init__(self, proxies: List[ProxyConfig] = None):
         super().__init__()
         self.proxies = proxies or []
+
         self.headers = [
-            "ID",
             "Group",
             "Remark",
             "Protocol",
             "Server",
+            "Real IP",
             "Port",
             "Network",
             "Security",
@@ -35,7 +51,6 @@ class ProxyTableModel(QAbstractTableModel):
         for row, proxy in enumerate(self.proxies):
             if proxy.id == updated_proxy.id:
                 self.proxies[row] = updated_proxy
-
                 index_start = self.index(row, 0)
                 index_end = self.index(row, len(self.headers) - 1)
                 self.dataChanged.emit(
@@ -60,15 +75,15 @@ class ProxyTableModel(QAbstractTableModel):
 
         if role == Qt.ItemDataRole.DisplayRole:
             if col == 0:
-                return str(proxy.id)
-            if col == 1:
                 return proxy.group_name
-            if col == 2:
+            if col == 1:
                 return proxy.remark
-            if col == 3:
+            if col == 2:
                 return proxy.protocol.upper()
-            if col == 4:
+            if col == 3:
                 return proxy.server
+            if col == 4:
+                return getattr(proxy, "real_ip", "") or "-"
             if col == 5:
                 return str(proxy.port)
             if col == 6:
@@ -76,6 +91,7 @@ class ProxyTableModel(QAbstractTableModel):
             if col == 7:
                 return proxy.security.upper() if proxy.security else "-"
             if col == 8:
+
                 return proxy.country or "-"
             if col == 9:
                 return f"{proxy.ping} ms" if proxy.ping > 0 else "-"
@@ -129,6 +145,7 @@ class ProxySortModel(QSortFilterProxyModel):
         self.search_text = ""
         self.status_filter = ""
         self.protocol_filter = ""
+        self.ip_type_filter = ""
 
     def filterAcceptsRow(self, source_row, source_parent):
         model = self.sourceModel()
@@ -150,8 +167,12 @@ class ProxySortModel(QSortFilterProxyModel):
             search_lower = self.search_text.lower()
             remark_lower = (proxy.remark or "").lower()
             server_lower = (proxy.server or "").lower()
-
             if search_lower not in remark_lower and search_lower not in server_lower:
+                return False
+
+        if self.ip_type_filter:
+            addr_type = get_address_type(proxy.server)
+            if addr_type != self.ip_type_filter:
                 return False
 
         return True
@@ -172,6 +193,19 @@ class ProxySortModel(QSortFilterProxyModel):
         self.search_text = text
         self.invalidateFilter()
 
+    def set_ip_type_filter(self, ip_type):
+        if ip_type in [
+            "همه آدرس‌ها",
+            "All Types",
+            "All Addresses",
+            "-- All Addresses --",
+            "-- همه آدرس‌ها --",
+        ]:
+            self.ip_type_filter = ""
+        else:
+            self.ip_type_filter = ip_type
+        self.invalidateFilter()
+
     def lessThan(self, left, right):
         source_model = self.sourceModel()
         if not source_model:
@@ -181,8 +215,21 @@ class ProxySortModel(QSortFilterProxyModel):
         right_proxy = source_model.proxies[right.row()]
         col = left.column()
 
-        if col == 0:
-            return (left_proxy.id or 0) < (right_proxy.id or 0)
+        if col == 4:
+            ip1_str = getattr(left_proxy, "real_ip", "")
+            ip2_str = getattr(right_proxy, "real_ip", "")
+
+            def ip_sort_key(ip_string):
+                if not ip_string or ip_string == "-":
+                    return (0, 0)
+                try:
+                    ip_obj = ipaddress.ip_address(ip_string)
+                    return (ip_obj.version, int(ip_obj))
+                except ValueError:
+                    return (99, ip_string)
+
+            return ip_sort_key(ip1_str) < ip_sort_key(ip2_str)
+
         elif col == 5:
             return (left_proxy.port or 0) < (right_proxy.port or 0)
         elif col == 9:
@@ -198,7 +245,6 @@ class ProxySortModel(QSortFilterProxyModel):
         right_data = str(source_model.data(right) or "")
 
         def natural_keys(text):
-
             return [
                 int(c) if c.isdigit() else c.lower() for c in re.split(r"(\d+)", text)
             ]

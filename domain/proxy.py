@@ -25,9 +25,14 @@ class ProxyConfig:
     sid: str = ""
     spx: str = ""
 
+    mode: str = "auto"
+    extra: str = ""
+    allow_insecure: bool = False
+
     country: str = ""
     city: str = ""
     isp: str = ""
+    real_ip: str = ""
     ping: float = -1.0
     download_speed: float = 0.0
     status: str = "Untested"
@@ -38,6 +43,8 @@ class ProxyConfig:
     scan_count: int = 0
 
     id: Optional[int] = None
+
+    sub_id: Optional[int] = None
 
     @property
     def unique_hash(self) -> str:

@@ -63,6 +63,7 @@ class ScanService:
                     proxy.country = result.country
                     proxy.city = result.city
                     proxy.isp = result.isp
+                    proxy.real_ip = result.outbound_ip
                     proxy.last_scan = result.scan_time
                     if result.status == "Valid":
                         proxy.last_seen_alive = result.scan_time

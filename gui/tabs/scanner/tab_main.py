@@ -35,16 +35,38 @@ class ScannerTab(QWidget):
         self.ui.table_view.setModel(self.proxy_model)
 
         header = self.ui.table_view.horizontalHeader()
+
         header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+
+        self.ui.table_view.setColumnWidth(0, 100)
+
+        self.ui.table_view.setColumnWidth(2, 70)
+        self.ui.table_view.setColumnWidth(3, 140)
+        self.ui.table_view.setColumnWidth(4, 130)
+        self.ui.table_view.setColumnWidth(5, 60)
+        self.ui.table_view.setColumnWidth(6, 70)
+        self.ui.table_view.setColumnWidth(7, 80)
+        self.ui.table_view.setColumnWidth(8, 70)
+        self.ui.table_view.setColumnWidth(9, 90)
+        self.ui.table_view.setColumnWidth(10, 80)
+        self.ui.table_view.setColumnWidth(11, 100)
+
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
 
         self._connect_signals()
-
         self._load_groups()
         self.retranslate_ui()
 
-    def _connect_signals(self):
+    def _is_worker_running(self, worker):
 
+        if worker is None:
+            return False
+        try:
+            return worker.isRunning()
+        except RuntimeError:
+            return False
+
+    def _connect_signals(self):
         self.ui.btn_refresh.clicked.connect(self.refresh_data)
         self.ui.btn_load_untested.clicked.connect(self.load_untested)
         self.ui.btn_load_all.clicked.connect(self.load_all)
@@ -58,15 +80,15 @@ class ScannerTab(QWidget):
         self.ui.cmb_status.currentIndexChanged.connect(self.apply_adv_filters)
         self.ui.cmb_protocol.currentIndexChanged.connect(self.apply_adv_filters)
 
+        self.ui.cmb_ip_filter.currentIndexChanged.connect(self.apply_adv_filters)
+
         self.ui.table_view.selectionModel().selectionChanged.connect(
             self.on_selection_changed
         )
         self.ui.table_view.customContextMenuRequested.connect(self.show_context_menu)
-
         event_bus.data_changed.connect(self.safe_refresh_data)
 
     def retranslate_ui(self):
-
         self.ui.lbl_archive.setText(LanguageManager.tr("scn_lbl_archive"))
         self.ui.btn_refresh.setText(LanguageManager.tr("scn_btn_refresh"))
         self.ui.btn_load_untested.setText(LanguageManager.tr("scn_btn_load_untested"))
@@ -86,6 +108,7 @@ class ScannerTab(QWidget):
         self.ui.lbl_search.setText(LanguageManager.tr("scn_lbl_search"))
         self.ui.lbl_status_filter.setText(LanguageManager.tr("scn_lbl_status"))
         self.ui.lbl_protocol_filter.setText(LanguageManager.tr("scn_lbl_protocol"))
+        self.ui.lbl_ip_filter.setText(LanguageManager.tr("scn_lbl_ip_filter"))
 
         if self.ui.cmb_group.count() > 0:
             self.ui.cmb_group.setItemText(0, LanguageManager.tr("scn_cmb_all_archives"))
@@ -97,6 +120,9 @@ class ScannerTab(QWidget):
             self.ui.cmb_protocol.setItemText(
                 0, LanguageManager.tr("scn_cmb_all_protocols")
             )
+
+        if self.ui.cmb_ip_filter.count() > 0:
+            self.ui.cmb_ip_filter.setItemText(0, LanguageManager.tr("scn_cmb_all_ips"))
 
         status_text = self.ui.lbl_status.text()
         if not status_text or status_text in ["آماده", "Ready"]:
@@ -115,14 +141,12 @@ class ScannerTab(QWidget):
         self.ui.chk_deep_scan.setText(LanguageManager.tr("scn_chk_deep_scan"))
 
     def _broadcast_lock(self, is_locked):
-
         group_name = self.ui.cmb_group.currentData()
         event_bus.scan_lock_changed.emit(
             is_locked, str(group_name) if group_name else ""
         )
 
     def start_speed_test_valid(self):
-
         valid_proxies = [p for p in self.model.proxies if p.status == "Valid"]
         if not valid_proxies:
             QMessageBox.warning(
@@ -153,9 +177,14 @@ class ScannerTab(QWidget):
         self.last_selected_group_idx = self.ui.cmb_group.currentIndex()
 
     def on_selection_changed(self):
-        has_selection = len(self.ui.table_view.selectionModel().selectedRows()) > 0
+        selected_indexes = self.ui.table_view.selectionModel().selectedRows()
+        has_selection = len(selected_indexes) > 0
+
+        is_scanning = self._is_worker_running(self.scan_worker)
+        is_speeding = self._is_worker_running(self.speed_worker)
+
         self.ui.btn_scan_selected.setEnabled(
-            has_selection and not (self.scan_worker and self.scan_worker.isRunning())
+            has_selection and not is_scanning and not is_speeding
         )
 
     def refresh_data(self):
@@ -165,27 +194,23 @@ class ScannerTab(QWidget):
             self.load_all()
 
     def safe_refresh_data(self):
-
-        if self.scan_worker and self.scan_worker.isRunning():
+        if self._is_worker_running(self.scan_worker):
             return
-        if self.speed_worker and self.speed_worker.isRunning():
+        if self._is_worker_running(self.speed_worker):
             return
         self.refresh_data()
 
     def on_group_changed(self, index):
-
-        is_running = (self.scan_worker and self.scan_worker.isRunning()) or (
-            self.speed_worker and self.speed_worker.isRunning()
-        )
+        is_running = self._is_worker_running(
+            self.scan_worker
+        ) or self._is_worker_running(self.speed_worker)
 
         if is_running:
-
             QMessageBox.warning(
                 self,
                 LanguageManager.tr("scn_msg_scan_running_title"),
                 LanguageManager.tr("scn_msg_scan_running_body"),
             )
-
             self.ui.cmb_group.blockSignals(True)
             self.ui.cmb_group.setCurrentIndex(self.last_selected_group_idx)
             self.ui.cmb_group.blockSignals(False)
@@ -251,11 +276,16 @@ class ScannerTab(QWidget):
         selected_indexes = self.ui.table_view.selectionModel().selectedRows()
         if not selected_indexes:
             return
+
         selected_proxies = []
         for index in selected_indexes:
-            source_index = self.proxy_model.mapToSource(index)
-            selected_proxies.append(self.model.proxies[source_index.row()])
-        self._execute_scan(selected_proxies)
+            if index.isValid():
+                source_index = self.proxy_model.mapToSource(index)
+                if source_index.isValid():
+                    selected_proxies.append(self.model.proxies[source_index.row()])
+
+        if selected_proxies:
+            self._execute_scan(selected_proxies)
 
     def start_scan_all(self):
         self._execute_scan(self.model.proxies)
@@ -268,7 +298,6 @@ class ScannerTab(QWidget):
 
         self.is_deep_scan_phase = is_deep_scan_phase
         if not is_deep_scan_phase:
-
             self.current_scan_list = proxies_to_scan
             self._broadcast_lock(True)
 
@@ -283,7 +312,6 @@ class ScannerTab(QWidget):
         self.ui.cmb_group.setEnabled(False)
         self.ui.cmb_speed_size.setEnabled(False)
         self.ui.chk_deep_scan.setEnabled(False)
-        self.ui.btn_scan_selected.setEnabled(False)
         self.ui.btn_speed_valid.setEnabled(False)
 
         self.scanned_count = 0
@@ -292,7 +320,6 @@ class ScannerTab(QWidget):
         self.ui.lbl_status.show()
         self.ui.progress_bar.show()
         self.ui.lbl_status.setStyleSheet("")
-
         self.ui.progress_bar.setMaximum(self.total_to_scan)
         self.ui.progress_bar.setValue(0)
 
@@ -330,19 +357,14 @@ class ScannerTab(QWidget):
         self.model.update_proxy(proxy)
 
     def on_scan_finished(self):
-
         if not self.is_stopped:
-
             if self.ui.chk_deep_scan.isChecked() and not self.is_deep_scan_phase:
-
                 failed_proxies = [
                     p
                     for p in self.current_scan_list
                     if p.status in ["Timeout", "Invalid", "Error"]
                 ]
-
                 if failed_proxies:
-
                     self._execute_scan(failed_proxies, is_deep_scan_phase=True)
                     return
 
@@ -362,15 +384,28 @@ class ScannerTab(QWidget):
         self._reset_buttons()
 
     def stop_scan(self):
-        is_scanning = self.scan_worker and self.scan_worker.isRunning()
-        is_speeding = self.speed_worker and self.speed_worker.isRunning()
+        is_scanning = self._is_worker_running(self.scan_worker)
+        is_speeding = self._is_worker_running(self.speed_worker)
 
         if is_scanning or is_speeding:
             self.is_stopped = True
             self.ui.btn_stop.setEnabled(False)
             self.ui.lbl_status.setText(LanguageManager.tr("scn_status_stopping"))
 
-            self.scan_service.cancel()
+            if hasattr(self.scan_service, "cancel"):
+                self.scan_service.cancel()
+
+            if is_scanning and self.scan_worker:
+                try:
+                    self.scan_worker.requestInterruption()
+                except RuntimeError:
+                    pass
+
+            if is_speeding and self.speed_worker:
+                try:
+                    self.speed_worker.requestInterruption()
+                except RuntimeError:
+                    pass
 
     def _reset_buttons(self):
         self.ui.btn_load_untested.setEnabled(True)
@@ -387,9 +422,8 @@ class ScannerTab(QWidget):
         self.ui.chk_deep_scan.setEnabled(True)
 
     def show_context_menu(self, pos):
-
-        is_scanning = self.scan_worker and self.scan_worker.isRunning()
-        is_speeding = self.speed_worker and self.speed_worker.isRunning()
+        is_scanning = self._is_worker_running(self.scan_worker)
+        is_speeding = self._is_worker_running(self.speed_worker)
         if is_scanning or is_speeding:
             return
 
@@ -456,9 +490,7 @@ class ScannerTab(QWidget):
         self.ui.btn_speed_valid.setEnabled(False)
         self.ui.cmb_group.setEnabled(False)
         self.ui.cmb_speed_size.setEnabled(False)
-        self.ui.btn_stop.setEnabled(
-            True
-        )
+        self.ui.btn_stop.setEnabled(True)
 
         self.ui.lbl_status.show()
         self.ui.progress_bar.show()
@@ -592,11 +624,14 @@ class ScannerTab(QWidget):
         status = self.ui.cmb_status.currentText() if status_idx > 0 else ""
         protocol_idx = self.ui.cmb_protocol.currentIndex()
         protocol = self.ui.cmb_protocol.currentText() if protocol_idx > 0 else ""
+        ip_idx = self.ui.cmb_ip_filter.currentIndex()
+        ip_type = self.ui.cmb_ip_filter.currentText() if ip_idx > 0 else ""
         search_txt = self.ui.txt_search.text().strip()
 
         self.proxy_model.set_status_filter(status)
         self.proxy_model.set_protocol_filter(protocol)
         self.proxy_model.set_search_text(search_txt)
+        self.proxy_model.set_ip_type_filter(ip_type)
         self.on_selection_changed()
 
     def _test_proxy_speed(self, proxy):

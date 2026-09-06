@@ -16,6 +16,18 @@ class VMessParser(BaseParser):
         except Exception as e:
             raise ParseError(f"فرمت Base64 یا JSON نامعتبر است: {e}")
 
+        network = str(data.get("net", "tcp")).strip().lower()
+        if network == "splithttp":
+            network = "xhttp"
+
+        tls_raw = str(data.get("tls", "none")).strip().lower()
+        if tls_raw in ("true", "1", "tls"):
+            security = "tls"
+        elif tls_raw in ("false", "0", "none", ""):
+            security = "none"
+        else:
+            security = tls_raw
+
         config = ProxyConfig(
             raw_url=raw_url,
             protocol="vmess",
@@ -24,8 +36,8 @@ class VMessParser(BaseParser):
             port=int(data.get("port", 0)),
             uuid_pwd=str(data.get("id", "")),
             sni=str(data.get("sni", "")),
-            security=str(data.get("tls", "none")),
-            network=str(data.get("net", "tcp")),
+            security=security,
+            network=network,
             alpn=str(data.get("alpn", "")),
             fingerprint=str(data.get("fp", "")),
             path=str(data.get("path", "")),
@@ -34,6 +46,14 @@ class VMessParser(BaseParser):
 
         config.aid = str(data.get("aid", "0"))
         config.scy = str(data.get("scy", "auto"))
+        config.mode = str(data.get("mode", ""))
+        config.extra = str(data.get("extra", ""))
+
+        allow_insecure_str = str(data.get("allowInsecure", "0"))
+        insecure_str = str(data.get("insecure", "0"))
+        config.allow_insecure = (
+            True if (allow_insecure_str == "1" or insecure_str == "1") else False
+        )
 
         self.validate(config)
         return config

@@ -10,7 +10,7 @@ class AboutTab(QWidget):
     def __init__(self):
         super().__init__()
 
-        self.updater = UpdateChecker(current_version="1.2.0")
+        self.updater = UpdateChecker(current_version="2.0.0")
 
         self.ui = AboutUiLayout()
         self.ui.setup_ui(self)

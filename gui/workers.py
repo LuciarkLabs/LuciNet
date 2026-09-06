@@ -7,10 +7,19 @@ logger = get_logger("UI_Workers")
 class AsyncTaskWorker(QThread):
     finished_signal = Signal(object)
     error_signal = Signal(str)
+    _active = set()
 
     def __init__(self, coroutine):
         super().__init__()
         self.coroutine = coroutine
+
+        AsyncTaskWorker._active.add(self)
+
+        self.finished.connect(self._cleanup)
+
+    def _cleanup(self):
+        AsyncTaskWorker._active.discard(self)
+        self.deleteLater()
 
     def run(self):
         loop = asyncio.new_event_loop()
@@ -28,6 +37,7 @@ class ScanWorker(QThread):
     progress_signal = Signal(object, dict)
     finished_signal = Signal()
     error_signal = Signal(str)
+    _active = set()
 
     def __init__(
         self, scan_service, proxies_to_scan, concurrent_scans, timeout_seconds
@@ -37,6 +47,12 @@ class ScanWorker(QThread):
         self.proxies = proxies_to_scan
         self.concurrent_scans = concurrent_scans
         self.timeout_seconds = timeout_seconds
+        ScanWorker._active.add(self)
+        self.finished.connect(self._cleanup)
+
+    def _cleanup(self):
+        ScanWorker._active.discard(self)
+        self.deleteLater()
 
     def run(self):
         loop = asyncio.new_event_loop()
@@ -65,12 +81,19 @@ class SpeedTestWorker(QThread):
     progress_signal = Signal(object)
     finished_signal = Signal()
     error_signal = Signal(str)
+    _active = set()
 
     def __init__(self, scan_service, proxies, max_size_kb=500):
         super().__init__()
         self.scan_service = scan_service
         self.proxies = proxies
         self.max_size_kb = max_size_kb
+        SpeedTestWorker._active.add(self)
+        self.finished.connect(self._cleanup)
+
+    def _cleanup(self):
+        SpeedTestWorker._active.discard(self)
+        self.deleteLater()
 
     def run(self):
         loop = asyncio.new_event_loop()
@@ -80,7 +103,6 @@ class SpeedTestWorker(QThread):
             self.progress_signal.emit(proxy)
 
         try:
-
             loop.run_until_complete(
                 self.scan_service.test_speed_many(
                     self.proxies, on_progress, max_size_kb=self.max_size_kb

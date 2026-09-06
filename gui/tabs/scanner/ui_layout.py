@@ -161,12 +161,19 @@ class ScannerUiLayout:
         self.cmb_protocol = QComboBox()
         self.cmb_protocol.addItems(["", "vless", "vmess", "trojan", "ss"])
 
+        self.lbl_ip_filter = QLabel()
+        self.cmb_ip_filter = QComboBox()
+        self.cmb_ip_filter.addItems(["", "IPv4", "IPv6", "Domain"])
+
         filter_layout.addWidget(self.lbl_search)
         filter_layout.addWidget(self.txt_search)
         filter_layout.addWidget(self.lbl_status_filter)
         filter_layout.addWidget(self.cmb_status)
         filter_layout.addWidget(self.lbl_protocol_filter)
         filter_layout.addWidget(self.cmb_protocol)
+
+        filter_layout.addWidget(self.lbl_ip_filter)
+        filter_layout.addWidget(self.cmb_ip_filter)
 
         layout.addWidget(self.filter_group)
 

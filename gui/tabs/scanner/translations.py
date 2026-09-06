@@ -59,6 +59,8 @@ FA = {
     "scn_btn_speed_valid": "⚡ تست سرعت سالم‌ها",
     "scn_msg_no_valid_title": "⚠️ اخطار",
     "scn_msg_no_valid_body": "هیچ کانفیگ سالمی (Valid) در این آرشیو یافت نشد!",
+    "scn_lbl_ip_filter": "نوع آدرس:",
+    "scn_cmb_all_ips": "-- همه آدرس‌ها --",
 }
 
 EN = {
@@ -122,4 +124,6 @@ EN = {
     "scn_btn_speed_valid": "⚡ Speed Test Valid",
     "scn_msg_no_valid_title": "⚠️ Warning",
     "scn_msg_no_valid_body": "No valid configs found in this archive!",
+    "scn_lbl_ip_filter": "Address Type:",
+    "scn_cmb_all_ips": "-- All Addresses --",
 }

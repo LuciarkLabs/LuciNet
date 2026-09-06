@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List
 from domain.proxy import ProxyConfig
+from domain.subscription import Subscription
 
 class BaseProxyRepository(ABC):
     @abstractmethod
@@ -28,6 +29,10 @@ class BaseProxyRepository(ABC):
         pass
 
     @abstractmethod
+    async def add_group(self, group_name: str) -> bool:
+        pass
+
+    @abstractmethod
     async def rename_group(self, old_name: str, new_name: str) -> int:
         pass
 
@@ -41,4 +46,20 @@ class BaseProxyRepository(ABC):
 
     @abstractmethod
     async def update_group_many(self, proxy_ids: List[int], new_group: str) -> int:
+        pass
+
+    @abstractmethod
+    async def get_subscriptions(self) -> List[Subscription]:
+        pass
+
+    @abstractmethod
+    async def save_subscription(self, sub: Subscription) -> int:
+        pass
+
+    @abstractmethod
+    async def delete_subscription(self, sub_id: int) -> bool:
+        pass
+
+    @abstractmethod
+    async def delete_proxies_by_sub(self, sub_id: int) -> int:
         pass

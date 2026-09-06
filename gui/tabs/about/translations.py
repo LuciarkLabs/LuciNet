@@ -1,5 +1,5 @@
 FA = {
-    "abt_desc": "یک اسکنر و مدیر پیشرفته، پرسرعت و چندنخی برای کانفیگ‌های شبکه، قدرت‌گرفته از موتور Xray و Python.",
+    "abt_desc": "یک کلاینت و ابزار مدیریت پروکسی پیشرفته مبتنی بر Xray، با پشتیبانی از TUN بومی، مسیریابی هوشمند و یک موتور اسکنر پرسرعت و چندنخی برای بررسی کانفیگ‌ها.",
     "abt_btn_github": "⭐ مشاهده در گیت‌هاب",
     "abt_btn_telegram": "✈️ کانال تلگرام",
     "abt_btn_update": "🔄 بررسی بروزرسانی",
@@ -13,7 +13,7 @@ FA = {
 }
 
 EN = {
-    "abt_desc": "An advanced, high-speed, multi-threaded proxy configuration manager and scanner powered by Xray-core and Python.",
+    "abt_desc": "An advanced Xray-powered proxy client and management tool with Native TUN support, smart routing, and a high-speed, multi-threaded configuration scanner.",
     "abt_btn_github": "⭐ View on GitHub",
     "abt_btn_telegram": "✈️ Telegram Channel",
     "abt_btn_update": "🔄 Check for Updates",

@@ -2,6 +2,7 @@ import sys
 import os
 import asyncio
 import time
+import ctypes
 from PySide6.QtWidgets import QApplication, QSplashScreen
 from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtCore import Qt
@@ -74,7 +75,7 @@ def main():
     )
     app.processEvents()
 
-    time.sleep(1)
+    time.sleep(0.6)
 
     print("Initializing Core Services and Database...")
     parser_factory, repository, scan_service = setup_dependencies()
@@ -86,7 +87,7 @@ def main():
     )
     app.processEvents()
 
-    time.sleep(0.9)
+    time.sleep(0.4)
 
     window = MainWindow(
         parser_factory=parser_factory, repository=repository, scan_service=scan_service

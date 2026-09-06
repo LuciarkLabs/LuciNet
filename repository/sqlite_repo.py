@@ -1,13 +1,14 @@
 import aiosqlite
 from typing import List
 from domain.proxy import ProxyConfig
+from domain.subscription import Subscription
 from repository.base_repo import BaseProxyRepository
 from config import AppConfig
 from utils.logger import get_logger
 
 logger = get_logger("Database")
 
-CURRENT_DB_VERSION = 5
+CURRENT_DB_VERSION = 8
 
 class SQLiteProxyRepository(BaseProxyRepository):
     def __init__(self, db_path: str = str(AppConfig.DB_PATH)):
@@ -42,6 +43,7 @@ class SQLiteProxyRepository(BaseProxyRepository):
                 )
             """)
             await db.execute("INSERT INTO schema_version (version) VALUES (?)", (4,))
+            current_version = 4
 
         if current_version == 1:
             await db.execute(
@@ -85,20 +87,72 @@ class SQLiteProxyRepository(BaseProxyRepository):
                 "CREATE INDEX IF NOT EXISTS idx_status ON proxies(status);"
             )
             await db.execute("UPDATE schema_version SET version = 5")
+            current_version = 5
+
+        if current_version == 5:
+            logger.info("Migrating to V6: Adding Subscriptions support...")
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS subscriptions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT,
+                    url TEXT,
+                    last_update REAL,
+                    auto_update INTEGER DEFAULT 0
+                )
+            """)
+            await db.execute(
+                "ALTER TABLE proxies ADD COLUMN sub_id INTEGER DEFAULT NULL"
+            )
+            await db.execute(
+                "CREATE INDEX IF NOT EXISTS idx_sub_id ON proxies(sub_id);"
+            )
+
+            await db.execute("UPDATE schema_version SET version = 6")
+            current_version = 6
+
+        if current_version == 6:
+            logger.info("Migrating to V7: Adding dedicated proxy_groups table...")
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS proxy_groups (
+                    name TEXT PRIMARY KEY
+                )
+            """)
+            await db.execute("""
+                INSERT OR IGNORE INTO proxy_groups (name)
+                SELECT DISTINCT group_name FROM proxies WHERE group_name IS NOT NULL AND group_name != ''
+            """)
+            await db.execute(
+                "INSERT OR IGNORE INTO proxy_groups (name) VALUES ('Default')"
+            )
+
+            await db.execute("UPDATE schema_version SET version = 7")
+            current_version = 7
+
+        if current_version == 7:
+            logger.info("Migrating to V8: Adding real_ip column...")
+            await db.execute("ALTER TABLE proxies ADD COLUMN real_ip TEXT DEFAULT ''")
+            await db.execute("UPDATE schema_version SET version = 8")
+            current_version = 8
 
         await db.commit()
 
     async def save(self, proxy: ProxyConfig) -> bool:
         try:
             async with aiosqlite.connect(self.db_path) as db:
+                if proxy.group_name:
+                    await db.execute(
+                        "INSERT OR IGNORE INTO proxy_groups (name) VALUES (?)",
+                        (proxy.group_name,),
+                    )
+
                 if proxy.id is None:
                     await db.execute(
                         """
                         INSERT INTO proxies (
                             unique_hash, raw_url, protocol, remark, server, port, uuid_pwd, sni,
                             security, network, flow, alpn, fingerprint, path, host, pbk, sid, spx,
-                            country, city, isp, ping, download_speed, status, first_seen, last_scan, last_seen_alive, scan_count, group_name
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            country, city, isp, real_ip, ping, download_speed, status, first_seen, last_scan, last_seen_alive, scan_count, group_name, sub_id
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         (
                             proxy.unique_hash,
@@ -122,6 +176,7 @@ class SQLiteProxyRepository(BaseProxyRepository):
                             proxy.country,
                             proxy.city,
                             proxy.isp,
+                            getattr(proxy, "real_ip", ""),
                             proxy.ping,
                             proxy.download_speed,
                             proxy.status,
@@ -130,6 +185,7 @@ class SQLiteProxyRepository(BaseProxyRepository):
                             proxy.last_seen_alive,
                             proxy.scan_count,
                             proxy.group_name,
+                            getattr(proxy, "sub_id", None),
                         ),
                     )
                 else:
@@ -137,7 +193,7 @@ class SQLiteProxyRepository(BaseProxyRepository):
                         """
                         UPDATE proxies SET
                             raw_url=?, remark=?, ping=?, download_speed=?, status=?, last_scan=?, last_seen_alive=?, scan_count=?,
-                            country=?, city=?, isp=?, path=?, host=?, pbk=?, sid=?, spx=?, group_name=?
+                            country=?, city=?, isp=?, real_ip=?, path=?, host=?, pbk=?, sid=?, spx=?, group_name=?, sub_id=?
                         WHERE id=?
                         """,
                         (
@@ -152,12 +208,14 @@ class SQLiteProxyRepository(BaseProxyRepository):
                             proxy.country,
                             proxy.city,
                             proxy.isp,
+                            getattr(proxy, "real_ip", ""),
                             proxy.path,
                             proxy.host,
                             proxy.pbk,
                             proxy.sid,
                             proxy.spx,
                             proxy.group_name,
+                            getattr(proxy, "sub_id", None),
                             proxy.id,
                         ),
                     )
@@ -172,6 +230,12 @@ class SQLiteProxyRepository(BaseProxyRepository):
             return 0
         try:
             async with aiosqlite.connect(self.db_path) as db:
+                groups = list(set(p.group_name for p in proxies if p.group_name))
+                await db.executemany(
+                    "INSERT OR IGNORE INTO proxy_groups (name) VALUES (?)",
+                    [(g,) for g in groups],
+                )
+
                 new_proxies = [p for p in proxies if p.id is None]
                 existing_proxies = [p for p in proxies if p.id is not None]
 
@@ -199,6 +263,7 @@ class SQLiteProxyRepository(BaseProxyRepository):
                             p.country,
                             p.city,
                             p.isp,
+                            getattr(p, "real_ip", ""),
                             p.ping,
                             getattr(p, "download_speed", 0.0),
                             p.status,
@@ -207,6 +272,7 @@ class SQLiteProxyRepository(BaseProxyRepository):
                             p.last_seen_alive,
                             p.scan_count,
                             p.group_name,
+                            getattr(p, "sub_id", None),
                         )
                         for p in new_proxies
                     ]
@@ -215,8 +281,8 @@ class SQLiteProxyRepository(BaseProxyRepository):
                         INSERT INTO proxies (
                             unique_hash, raw_url, protocol, remark, server, port, uuid_pwd, sni,
                             security, network, flow, alpn, fingerprint, path, host, pbk, sid, spx,
-                            country, city, isp, ping, download_speed, status, first_seen, last_scan, last_seen_alive, scan_count, group_name
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            country, city, isp, real_ip, ping, download_speed, status, first_seen, last_scan, last_seen_alive, scan_count, group_name, sub_id
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         insert_data,
                     )
@@ -235,12 +301,14 @@ class SQLiteProxyRepository(BaseProxyRepository):
                             p.country,
                             p.city,
                             p.isp,
+                            getattr(p, "real_ip", ""),
                             p.path,
                             p.host,
                             p.pbk,
                             p.sid,
                             p.spx,
                             p.group_name,
+                            getattr(p, "sub_id", None),
                             p.id,
                         )
                         for p in existing_proxies
@@ -249,7 +317,7 @@ class SQLiteProxyRepository(BaseProxyRepository):
                         """
                         UPDATE proxies SET
                             raw_url=?, remark=?, ping=?, download_speed=?, status=?, last_scan=?, last_seen_alive=?, scan_count=?,
-                            country=?, city=?, isp=?, path=?, host=?, pbk=?, sid=?, spx=?, group_name=?
+                            country=?, city=?, isp=?, real_ip=?, path=?, host=?, pbk=?, sid=?, spx=?, group_name=?, sub_id=?
                         WHERE id=?
                         """,
                         update_data,
@@ -301,6 +369,10 @@ class SQLiteProxyRepository(BaseProxyRepository):
                     p.download_speed = (
                         row["download_speed"] if "download_speed" in row.keys() else 0.0
                     )
+                    p.sub_id = row["sub_id"] if "sub_id" in row.keys() else None
+
+                    p.real_ip = row["real_ip"] if "real_ip" in row.keys() else ""
+
                     proxies.append(p)
         return proxies
 
@@ -310,18 +382,37 @@ class SQLiteProxyRepository(BaseProxyRepository):
             await db.commit()
             return True
 
+    async def add_group(self, group_name: str) -> bool:
+        try:
+            async with aiosqlite.connect(self.db_path) as db:
+                await db.execute(
+                    "INSERT OR IGNORE INTO proxy_groups (name) VALUES (?)",
+                    (group_name,),
+                )
+                await db.commit()
+            return True
+        except Exception as e:
+            logger.error(f"DB Add Group Error: {e}")
+            return False
+
     async def get_groups(self) -> List[str]:
         async with aiosqlite.connect(self.db_path) as db:
-            async with db.execute("SELECT DISTINCT group_name FROM proxies") as cursor:
+            async with db.execute(
+                "SELECT name FROM proxy_groups ORDER BY name"
+            ) as cursor:
                 rows = await cursor.fetchall()
                 return [row[0] for row in rows if row[0]]
 
     async def rename_group(self, old_name: str, new_name: str) -> int:
         async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "INSERT OR IGNORE INTO proxy_groups (name) VALUES (?)", (new_name,)
+            )
             cursor = await db.execute(
                 "UPDATE proxies SET group_name = ? WHERE group_name = ?",
                 (new_name, old_name),
             )
+            await db.execute("DELETE FROM proxy_groups WHERE name = ?", (old_name,))
             await db.commit()
             return cursor.rowcount
 
@@ -330,6 +421,7 @@ class SQLiteProxyRepository(BaseProxyRepository):
             cursor = await db.execute(
                 "DELETE FROM proxies WHERE group_name = ?", (group_name,)
             )
+            await db.execute("DELETE FROM proxy_groups WHERE name = ?", (group_name,))
             await db.commit()
             return cursor.rowcount
 
@@ -347,9 +439,59 @@ class SQLiteProxyRepository(BaseProxyRepository):
         if not proxy_ids:
             return 0
         async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "INSERT OR IGNORE INTO proxy_groups (name) VALUES (?)", (new_group,)
+            )
             await db.executemany(
                 "UPDATE proxies SET group_name = ? WHERE id = ?",
                 [(new_group, pid) for pid in proxy_ids],
             )
             await db.commit()
             return len(proxy_ids)
+
+    async def get_subscriptions(self) -> List[Subscription]:
+        subs = []
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute("SELECT * FROM subscriptions") as cursor:
+                async for row in cursor:
+                    subs.append(
+                        Subscription(
+                            id=row["id"],
+                            name=row["name"],
+                            url=row["url"],
+                            last_update=row["last_update"],
+                            auto_update=bool(row["auto_update"]),
+                        )
+                    )
+        return subs
+
+    async def save_subscription(self, sub: Subscription) -> int:
+        async with aiosqlite.connect(self.db_path) as db:
+            if sub.id is None:
+                cursor = await db.execute(
+                    "INSERT INTO subscriptions (name, url, last_update, auto_update) VALUES (?, ?, ?, ?)",
+                    (sub.name, sub.url, sub.last_update, int(sub.auto_update)),
+                )
+                sub_id = cursor.lastrowid
+            else:
+                await db.execute(
+                    "UPDATE subscriptions SET name=?, url=?, last_update=?, auto_update=? WHERE id=?",
+                    (sub.name, sub.url, sub.last_update, int(sub.auto_update), sub.id),
+                )
+                sub_id = sub.id
+            await db.commit()
+            return sub_id
+
+    async def delete_subscription(self, sub_id: int) -> bool:
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("DELETE FROM subscriptions WHERE id = ?", (sub_id,))
+            await db.execute("DELETE FROM proxies WHERE sub_id = ?", (sub_id,))
+            await db.commit()
+            return True
+
+    async def delete_proxies_by_sub(self, sub_id: int) -> int:
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute("DELETE FROM proxies WHERE sub_id = ?", (sub_id,))
+            await db.commit()
+            return cursor.rowcount

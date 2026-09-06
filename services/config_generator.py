@@ -1,13 +1,10 @@
 import json
 import base64
-from domain.proxy import ProxyConfig
 import ipaddress
 import urllib.parse
+from domain.proxy import ProxyConfig
 
-class XrayConfigValidatorError(Exception):
-    pass
-
-class XrayConfigGenerator:
+class ClientConfigGenerator:
 
     @staticmethod
     def _is_ip(value: str) -> bool:
@@ -34,7 +31,7 @@ class XrayConfigGenerator:
 
         for value in values:
             value = value.strip()
-            if value and not XrayConfigGenerator._is_ip(value):
+            if value and not ClientConfigGenerator._is_ip(value):
                 return value
 
         return ""
@@ -69,44 +66,153 @@ class XrayConfigGenerator:
     @staticmethod
     def validate_pre_run(proxy: ProxyConfig):
         if not proxy.server or not proxy.port:
-            raise XrayConfigValidatorError("آدرس سرور یا پورت خالی است.")
+            raise ValueError("آدرس سرور یا پورت خالی است.")
         if proxy.protocol in ("vless", "vmess", "trojan") and not proxy.uuid_pwd:
-            raise XrayConfigValidatorError(
-                "برای این پروتکل UUID یا Password الزامی است."
-            )
+            raise ValueError("برای این پروتکل UUID یا Password الزامی است.")
         if proxy.security == "reality" and not getattr(proxy, "pbk", None):
-            raise XrayConfigValidatorError(
-                "پروتکل Reality نیاز به Public Key (pbk) دارد."
-            )
+            raise ValueError("پروتکل Reality نیاز به Public Key (pbk) دارد.")
 
     @staticmethod
-    def generate(proxy: ProxyConfig, local_port: int) -> dict:
-        XrayConfigGenerator.validate_pre_run(proxy)
+    def generate(proxy: ProxyConfig, local_port: int, enable_tun: bool = False) -> dict:
+        ClientConfigGenerator.validate_pre_run(proxy)
 
-        return {
-            "log": {
-                "loglevel": "none",
-            },
-            "routing": {
-                "rules": [
+        inbounds = [
+            {
+                "port": local_port,
+                "listen": "127.0.0.1",
+                "protocol": "mixed",
+                "settings": {"udp": True},
+                "sniffing": {
+                    "enabled": True,
+                    "destOverride": ["http", "tls", "quic"],
+                },
+            }
+        ]
+
+        if enable_tun:
+            inbounds.append(
+                {
+                    "tag": "tun-in",
+                    "protocol": "tun",
+                    "settings": {
+                        "name": "LuciNet",
+                        "MTU": 1500,
+                        "gateway": ["172.18.0.1/30", "fdfe:dcba:9876::1/126"],
+                        "autoSystemRoutingTable": ["0.0.0.0/0", "::/0"],
+                        "autoOutboundsInterface": "auto",
+                    },
+                    "sniffing": {
+                        "enabled": True,
+                        "destOverride": [
+                            "http",
+                            "tls",
+                            "quic",
+                        ],
+                    },
+                }
+            )
+
+        outbounds = [
+            ClientConfigGenerator._build_outbound(proxy),
+            {"protocol": "freedom", "tag": "direct"},
+            {"protocol": "blackhole", "tag": "block"},
+        ]
+
+        if enable_tun:
+            outbounds.append({"protocol": "dns", "tag": "dns-out"})
+
+        config_dict = {
+            "log": {"loglevel": "info"},
+            "inbounds": inbounds,
+            "outbounds": outbounds,
+        }
+
+        if enable_tun:
+
+            config_dict["dns"] = {
+                "servers": ["8.8.8.8", "1.1.1.1", "localhost"],
+                "queryStrategy": "UseIPv4",
+            }
+
+            rules = [
+
+                {
+                    "type": "field",
+                    "inboundTag": ["tun-in"],
+                    "port": "135,137,138,139,1900,5353",
+                    "network": "udp",
+                    "outboundTag": "block",
+                },
+
+                {
+                    "type": "field",
+                    "port": 53,
+                    "network": "udp",
+                    "inboundTag": ["tun-in"],
+                    "outboundTag": "dns-out",
+                },
+
+                {
+                    "type": "field",
+                    "network": "udp",
+                    "port": 443,
+                    "outboundTag": "block",
+                },
+
+                {
+                    "type": "field",
+                    "domain": [
+                        "dns.google",
+                        "dns.google.com",
+                        "cloudflare-dns.com",
+                        "mozilla.cloudflare-dns.com",
+                    ],
+                    "outboundTag": "proxy",
+                },
+            ]
+
+            direct_ips = [
+                "192.168.0.0/16",
+                "10.0.0.0/8",
+                "172.16.0.0/12",
+                "127.0.0.0/8",
+            ]
+            direct_domains = []
+
+            if ClientConfigGenerator._is_ip(proxy.server):
+                direct_ips.append(proxy.server)
+            else:
+                direct_domains.append(proxy.server)
+
+            if direct_ips:
+                rules.append(
                     {
                         "type": "field",
-                        "inboundTag": ["inbound-local"],
-                        "outboundTag": "proxy",
+                        "outboundTag": "direct",
+                        "ip": direct_ips,
                     }
-                ],
-            },
-            "inbounds": [
+                )
+
+            if direct_domains:
+                rules.append(
+                    {
+                        "type": "field",
+                        "outboundTag": "direct",
+                        "domain": direct_domains,
+                    }
+                )
+
+            rules.append(
                 {
-                    "tag": "inbound-local",
-                    "port": local_port,
-                    "listen": "127.0.0.1",
-                    "protocol": "mixed",
-                    "settings": {"udp": True},
+                    "type": "field",
+                    "inboundTag": ["tun-in"],
+                    "outboundTag": "proxy",
                 }
-            ],
-            "outbounds": [XrayConfigGenerator._build_outbound(proxy)],
-        }
+            )
+
+            config_dict["routing"] = {"domainStrategy": "IPIfNonMatch", "rules": rules}
+
+        return config_dict
 
     @staticmethod
     def _build_outbound(proxy: ProxyConfig) -> dict:
@@ -115,8 +221,8 @@ class XrayConfigGenerator:
         return {
             "tag": "proxy",
             "protocol": protocol_name,
-            "settings": XrayConfigGenerator._build_settings(proxy),
-            "streamSettings": XrayConfigGenerator._build_stream_settings(proxy),
+            "settings": ClientConfigGenerator._build_settings(proxy),
+            "streamSettings": ClientConfigGenerator._build_stream_settings(proxy),
         }
 
     @staticmethod
@@ -160,7 +266,7 @@ class XrayConfigGenerator:
 
     @staticmethod
     def _build_stream_settings(proxy: ProxyConfig) -> dict:
-        network = XrayConfigGenerator._normalize_network(proxy.network)
+        network = ClientConfigGenerator._normalize_network(proxy.network)
 
         stream = {
             "network": network,
@@ -168,7 +274,7 @@ class XrayConfigGenerator:
         }
 
         valid_domain = proxy.sni if proxy.sni else (proxy.host if proxy.host else "")
-        if not valid_domain and not XrayConfigGenerator._is_ip(proxy.server):
+        if not valid_domain and not ClientConfigGenerator._is_ip(proxy.server):
             valid_domain = proxy.server
 
         if network == "ws":
@@ -198,9 +304,7 @@ class XrayConfigGenerator:
 
         elif network == "xhttp":
             xhttp_settings = {}
-            fallback_domain = XrayConfigGenerator._fallback_domain(
-                proxy
-            )
+            fallback_domain = ClientConfigGenerator._fallback_domain(proxy)
 
             path = (getattr(proxy, "path", "") or "").strip()
             if not path:
@@ -212,9 +316,7 @@ class XrayConfigGenerator:
             host = (getattr(proxy, "host", "") or "").strip()
             if not host:
                 host = fallback_domain
-            if host and not XrayConfigGenerator._is_ip(
-                host
-            ):
+            if host and not ClientConfigGenerator._is_ip(host):
                 xhttp_settings["host"] = host
 
             mode = (getattr(proxy, "mode", "") or "").strip()
@@ -230,7 +332,7 @@ class XrayConfigGenerator:
 
             xhttp_settings["mode"] = mode
 
-            extra_dict = XrayConfigGenerator._parse_xhttp_extra(
+            extra_dict = ClientConfigGenerator._parse_xhttp_extra(
                 getattr(proxy, "extra", "")
             )
             if extra_dict:
@@ -241,10 +343,10 @@ class XrayConfigGenerator:
             stream["xhttpSettings"] = xhttp_settings
 
         if proxy.security == "tls":
-            fallback_domain = XrayConfigGenerator._fallback_domain(proxy)
+            fallback_domain = ClientConfigGenerator._fallback_domain(proxy)
             server_name = (proxy.sni or proxy.host or "").strip()
 
-            if not server_name or XrayConfigGenerator._is_ip(server_name):
+            if not server_name or ClientConfigGenerator._is_ip(server_name):
                 server_name = fallback_domain
 
             tls_settings = {
@@ -252,7 +354,7 @@ class XrayConfigGenerator:
                 "fingerprint": getattr(proxy, "fingerprint", "") or "chrome",
             }
 
-            if server_name and not XrayConfigGenerator._is_ip(server_name):
+            if server_name and not ClientConfigGenerator._is_ip(server_name):
                 tls_settings["serverName"] = server_name
 
             if proxy.alpn:
@@ -260,7 +362,6 @@ class XrayConfigGenerator:
                 if alpn_list:
                     tls_settings["alpn"] = alpn_list
             elif network == "xhttp":
-
                 tls_settings["alpn"] = ["h2", "http/1.1"]
 
             stream["tlsSettings"] = tls_settings
@@ -277,9 +378,9 @@ class XrayConfigGenerator:
                 "fingerprint": getattr(proxy, "fingerprint", "") or "chrome",
             }
 
-            if server_name and not XrayConfigGenerator._is_ip(server_name):
+            if server_name and not ClientConfigGenerator._is_ip(server_name):
                 reality_settings["serverName"] = server_name
-            elif not XrayConfigGenerator._is_ip(proxy.server):
+            elif not ClientConfigGenerator._is_ip(proxy.server):
                 reality_settings["serverName"] = proxy.server
 
             stream["realitySettings"] = reality_settings

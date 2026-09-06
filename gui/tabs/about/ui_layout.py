@@ -54,7 +54,7 @@ class AboutUiLayout:
         )
         layout.addWidget(self.lbl_brand)
 
-        self.lbl_version = QLabel("v1.2.0")
+        self.lbl_version = QLabel("v2.0.0")
         self.lbl_version.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_version.setStyleSheet(
             "font-size: 13px; color: #7f8fa6; margin-bottom: 25px; background: transparent;"

@@ -26,12 +26,11 @@ class XrayRunnerPool:
         self.semaphore = None
 
     def set_concurrent_limit(self, limit: int):
-
         self.semaphore = asyncio.Semaphore(limit)
         self.port_manager.reset()
 
     async def _wait_for_port(
-        self, port: int, process: asyncio.subprocess.Process, timeout: float = 5.0
+        self, port: int, process: asyncio.subprocess.Process, timeout: float = 6.0
     ) -> bool:
         start = time.time()
         while time.time() - start < timeout:
@@ -57,6 +56,9 @@ class XrayRunnerPool:
             try:
                 xray_json = XrayConfigGenerator.generate(proxy_config, port)
 
+                if "log" in xray_json:
+                    xray_json["log"]["loglevel"] = "none"
+
                 with tempfile.TemporaryDirectory() as temp_dir:
                     config_path = Path(temp_dir) / "config.json"
                     with open(config_path, "w", encoding="utf-8") as f:
@@ -71,27 +73,17 @@ class XrayRunnerPool:
                         "run",
                         "-c",
                         str(config_path),
-                        stdout=asyncio.subprocess.PIPE,
-                        stderr=asyncio.subprocess.PIPE,
+                        stdout=asyncio.subprocess.DEVNULL,
+                        stderr=asyncio.subprocess.DEVNULL,
                         creationflags=cflags,
                     )
 
-                    is_ready = await self._wait_for_port(port, process)
+                    is_ready = await self._wait_for_port(port, process, timeout=6.0)
 
                     if process.returncode is not None and process.returncode != 0:
-                        stdout_data = await process.stdout.read()
-                        stderr_data = await process.stderr.read()
-                        full_err = (
-                            stdout_data.decode("utf-8")
-                            + "\n"
-                            + stderr_data.decode("utf-8")
-                        ).strip()
-                        logger.error(
-                            f"Xray Crash for '{proxy_config.remark}': {full_err}"
-                        )
                         return ScanResult(
                             status="Error",
-                            error_message=f"Xray Crash: {full_err[:150]}",
+                            error_message=f"Xray exited with code {process.returncode}",
                         )
 
                     if not is_ready:
@@ -99,6 +91,8 @@ class XrayRunnerPool:
                             status="Error",
                             error_message="Local port failed to bind (Timeout)",
                         )
+
+                    await asyncio.sleep(0.05)
 
                     return await self.checker.check_connection(port)
 
@@ -125,6 +119,10 @@ class XrayRunnerPool:
             process = None
             try:
                 xray_json = XrayConfigGenerator.generate(proxy_config, port)
+
+                if "log" in xray_json:
+                    xray_json["log"]["loglevel"] = "none"
+
                 with tempfile.TemporaryDirectory() as temp_dir:
                     config_path = Path(temp_dir) / "config.json"
                     with open(config_path, "w", encoding="utf-8") as f:
@@ -139,16 +137,18 @@ class XrayRunnerPool:
                         "run",
                         "-c",
                         str(config_path),
-                        stdout=asyncio.subprocess.PIPE,
-                        stderr=asyncio.subprocess.PIPE,
+                        stdout=asyncio.subprocess.DEVNULL,
+                        stderr=asyncio.subprocess.DEVNULL,
                         creationflags=cflags,
                     )
 
-                    is_ready = await self._wait_for_port(port, process)
+                    is_ready = await self._wait_for_port(port, process, timeout=6.0)
                     if not is_ready:
                         return 0.0
 
+                    await asyncio.sleep(0.05)
                     return await self.checker.check_speed(port, max_size_kb)
+
             except Exception as e:
                 logger.error(f"Speed Test Error: {e}")
                 return 0.0
