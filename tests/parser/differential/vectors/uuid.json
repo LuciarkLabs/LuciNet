@@ -1,0 +1,26 @@
+[
+    {
+        "id": "UUID-001",
+        "input": "example",
+        "expected_kind": "value",
+        "expected": "feb54431-301b-52bb-a6dd-e1e93e81bb9e",
+        "source": "xray-core/common/uuid/uuid.go",
+        "reference_commit": "d562d8947d3175db86b4fa849742433a9876cb63"
+    },
+    {
+        "id": "UUID-002",
+        "input": "-12345678123412341234123456789012",
+        "expected_kind": "value",
+        "expected": "12345678-1234-1234-1234-123456789012",
+        "source": "xray-core/common/uuid/uuid.go",
+        "reference_commit": "d562d8947d3175db86b4fa849742433a9876cb63"
+    },
+    {
+        "id": "UUID-003",
+        "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "expected_kind": "error",
+        "expected_error": "ValueError",
+        "source": "xray-core/common/uuid/uuid.go",
+        "reference_commit": "d562d8947d3175db86b4fa849742433a9876cb63"
+    }
+]

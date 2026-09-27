@@ -1,3 +1,4 @@
+
 FA = {
     "exp_group_settings": "تنظیمات خروجی",
     "exp_lbl_archive": "انتخاب آرشیو:",

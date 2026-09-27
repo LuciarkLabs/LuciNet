@@ -16,22 +16,24 @@ from scanner.xray_runner import XrayRunnerPool
 from services.scan_service import ScanService
 from gui.main_window import MainWindow
 
-def get_resource_path(relative_path):
-\
-\
-\
 
+def get_resource_path(relative_path):
+    """
+    دریافت مسیر مطلق فایل‌های پک‌شده (مثل عکس‌ها و آیکون‌ها).
+    در حالت عادی از همون مسیر پروژه و در حالت exe از داخل پوشه _MEIPASS (همون _internal) می‌خونه.
+    """
     if getattr(sys, "frozen", False):
         base_path = sys._MEIPASS
     else:
         base_path = os.path.abspath(".")
     return os.path.join(base_path, relative_path)
 
-def setup_dependencies():
-\
-\
-\
 
+def setup_dependencies():
+    """
+    تزریق وابستگی‌ها (Dependency Injection Container).
+    تمام اشیاء مورد نیاز در اینجا ساخته شده و به هم متصل می‌شوند.
+    """
     repository = SQLiteProxyRepository()
 
     loop = asyncio.new_event_loop()
@@ -49,10 +51,17 @@ def setup_dependencies():
     runner_pool = XrayRunnerPool(port_manager=port_manager, checker=checker)
     scan_service = ScanService(runner_pool=runner_pool, repository=repository)
 
+    try:
+        from services.core_manager import CoreManager
+
+        CoreManager.recover_system_proxy_on_startup()
+    except Exception as e:
+        print(f"[Warning] Startup proxy recovery error: {e}")
+
     return parser_factory, repository, scan_service
 
-def main():
 
+def main():
     app = QApplication(sys.argv)
 
     icon_path = get_resource_path("assets/icon.ico")
@@ -75,7 +84,7 @@ def main():
     )
     app.processEvents()
 
-    time.sleep(0.6)
+    time.sleep(0.3)
 
     print("Initializing Core Services and Database...")
     parser_factory, repository, scan_service = setup_dependencies()
@@ -99,6 +108,7 @@ def main():
 
     print("Application started successfully.")
     sys.exit(app.exec())
+
 
 if __name__ == "__main__":
     main()

@@ -5,11 +5,13 @@ from utils.logger import get_logger
 
 logger = get_logger("GeoIP")
 
+
 class BaseGeoIPProvider(ABC):
     @abstractmethod
     async def get_info(self, ip: str) -> Tuple[str, str, str]:
-
+        """بازگشت تاپل (Country, City, ISP)"""
         pass
+
 
 class IPInfoProvider(BaseGeoIPProvider):
     def __init__(self, token: str = ""):
@@ -33,6 +35,7 @@ class IPInfoProvider(BaseGeoIPProvider):
         except Exception as e:
             logger.error(f"IPInfo fetch failed for {ip}: {e}")
         return ("", "", "")
+
 
 class GeoIPService:
     def __init__(self, provider: BaseGeoIPProvider):

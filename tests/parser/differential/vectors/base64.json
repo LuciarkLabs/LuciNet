@@ -1,0 +1,34 @@
+[
+    {
+        "id": "B64-001",
+        "input": "abc-",
+        "expected_kind": "value",
+        "expected": "69b73e",
+        "source": "xray-core/infra/conf/vless.go (call site) -> Go encoding/base64 RawURLEncoding (primitive semantics)",
+        "reference_commit": "d562d8947d3175db86b4fa849742433a9876cb63"
+    },
+    {
+        "id": "B64-002",
+        "input": "abc_",
+        "expected_kind": "value",
+        "expected": "69b73f",
+        "source": "xray-core/infra/conf/vless.go (call site) -> Go encoding/base64 RawURLEncoding (primitive semantics)",
+        "reference_commit": "d562d8947d3175db86b4fa849742433a9876cb63"
+    },
+    {
+        "id": "B64-NEG-001",
+        "input": "abc\\",
+        "expected_kind": "error",
+        "expected_error": "ValueError",
+        "source": "xray-core/infra/conf/vless.go (call site) -> Go encoding/base64 RawURLEncoding (primitive semantics)",
+        "reference_commit": "d562d8947d3175db86b4fa849742433a9876cb63"
+    },
+    {
+        "id": "B64-NEG-002",
+        "input": "a",
+        "expected_kind": "error",
+        "expected_error": "ValueError",
+        "source": "xray-core/infra/conf/vless.go (call site) -> Go encoding/base64 RawURLEncoding (primitive semantics)",
+        "reference_commit": "d562d8947d3175db86b4fa849742433a9876cb63"
+    }
+]

@@ -1,3 +1,4 @@
+
 FA = {
     "conn_status_disconnected": "قطع ارتباط",
     "conn_status_connected": "متصل",
@@ -11,6 +12,8 @@ FA = {
     "conn_msg_admin_title": "نیاز به دسترسی ادمین",
     "conn_msg_admin_body": "برای استفاده از حالت تونل (VPN) نیاز به دسترسی ادمین است. برنامه برای دریافت دسترسی ری‌استارت می‌شود.",
     "conn_chk_dont_show": "دیگر این پیام را نشان نده",
+    "conn_msg_no_proxy_title": "خطا",
+    "conn_msg_no_proxy_body": "لطفاً ابتدا یک کانفیگ را از تب آرشیو انتخاب کنید!",
 }
 
 EN = {
@@ -26,4 +29,6 @@ EN = {
     "conn_msg_admin_title": "Administrator Access Required",
     "conn_msg_admin_body": "TUN mode (VPN) requires administrator privileges. The app will restart to grant access.",
     "conn_chk_dont_show": "Do not show this message again",
+    "conn_msg_no_proxy_title": "Error",
+    "conn_msg_no_proxy_body": "Please select a configuration from the Archive tab first!",
 }

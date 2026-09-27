@@ -1,3 +1,4 @@
+
 from PySide6.QtWidgets import (
     QVBoxLayout,
     QPushButton,
@@ -7,12 +8,13 @@ from PySide6.QtWidgets import (
     QGroupBox,
 )
 
+
 class ExportUiLayout:
     def setup_ui(self, parent_widget):
-\
-\
-\
-
+        """
+        این متد فقط المان‌های بصری تب خروجی را می‌سازد.
+        هیچ‌گونه سیگنال، کارگر پس‌زمینه (Worker) یا ترجمه‌ای در اینجا وجود ندارد.
+        """
         layout = QVBoxLayout(parent_widget)
 
         self.settings_group = QGroupBox()

@@ -4,7 +4,9 @@ import ipaddress
 import urllib.parse
 from domain.proxy import ProxyConfig
 
+
 class ClientConfigGenerator:
+    """موتور تولید فایل JSON استاندارد Xray برای کلاینت اصلی (نسخه گلوبال)"""
 
     @staticmethod
     def _is_ip(value: str) -> bool:
@@ -17,8 +19,14 @@ class ClientConfigGenerator:
     @staticmethod
     def _normalize_network(network: str) -> str:
         net = (network or "tcp").strip().lower()
-        if net == "splithttp":
+        if net in ("websocket", "ws"):
+            return "ws"
+        if net in ("raw", "tcp"):
+            return "tcp"
+        if net in ("splithttp", "xhttp"):
             return "xhttp"
+        if net in ("mkcp", "kcp"):
+            return "kcp"
         return net
 
     @staticmethod
@@ -78,6 +86,7 @@ class ClientConfigGenerator:
 
         inbounds = [
             {
+                "tag": "inbound-local",
                 "port": local_port,
                 "listen": "127.0.0.1",
                 "protocol": "mixed",
@@ -85,6 +94,7 @@ class ClientConfigGenerator:
                 "sniffing": {
                     "enabled": True,
                     "destOverride": ["http", "tls", "quic"],
+                    "routeOnly": True,
                 },
             }
         ]
@@ -108,6 +118,7 @@ class ClientConfigGenerator:
                             "tls",
                             "quic",
                         ],
+                        "routeOnly": True,
                     },
                 }
             )
@@ -128,14 +139,17 @@ class ClientConfigGenerator:
         }
 
         if enable_tun:
-
             config_dict["dns"] = {
-                "servers": ["8.8.8.8", "1.1.1.1", "localhost"],
+                "servers": [
+                    "https://dns.google/dns-query",
+                    "https://1.1.1.1/dns-query",
+                    "8.8.8.8",
+                    "1.1.1.1",
+                ],
                 "queryStrategy": "UseIPv4",
             }
 
             rules = [
-
                 {
                     "type": "field",
                     "inboundTag": ["tun-in"],
@@ -143,7 +157,6 @@ class ClientConfigGenerator:
                     "network": "udp",
                     "outboundTag": "block",
                 },
-
                 {
                     "type": "field",
                     "port": 53,
@@ -151,14 +164,19 @@ class ClientConfigGenerator:
                     "inboundTag": ["tun-in"],
                     "outboundTag": "dns-out",
                 },
-
+                {
+                    "type": "field",
+                    "port": 53,
+                    "network": "udp",
+                    "ip": ["8.8.8.8", "1.1.1.1"],
+                    "outboundTag": "proxy",
+                },
                 {
                     "type": "field",
                     "network": "udp",
                     "port": 443,
                     "outboundTag": "block",
                 },
-
                 {
                     "type": "field",
                     "domain": [
@@ -205,7 +223,7 @@ class ClientConfigGenerator:
             rules.append(
                 {
                     "type": "field",
-                    "inboundTag": ["tun-in"],
+                    "inboundTag": ["tun-in", "inbound-local"],
                     "outboundTag": "proxy",
                 }
             )
@@ -216,7 +234,8 @@ class ClientConfigGenerator:
 
     @staticmethod
     def _build_outbound(proxy: ProxyConfig) -> dict:
-        protocol_name = "shadowsocks" if proxy.protocol == "ss" else proxy.protocol
+        proto = (proxy.protocol or "").strip().lower()
+        protocol_name = "shadowsocks" if proto in ("ss", "shadowsocks") else proto
 
         return {
             "tag": "proxy",
@@ -227,17 +246,19 @@ class ClientConfigGenerator:
 
     @staticmethod
     def _build_settings(proxy: ProxyConfig) -> dict:
-        if proxy.protocol in ("vless", "vmess"):
+        proto = (proxy.protocol or "").strip().lower()
+        if proto in ("vless", "vmess"):
             user = {"id": proxy.uuid_pwd}
 
-            if proxy.protocol == "vless":
+            if proto == "vless":
                 user["encryption"] = "none"
                 flow = getattr(proxy, "flow", "")
                 if flow:
                     user["flow"] = flow
             else:
-                user["alterId"] = int(getattr(proxy, "aid", 0))
-                user["security"] = getattr(proxy, "scy", "auto")
+                alter_id = getattr(proxy, "vmess_aid", getattr(proxy, "aid", 0))
+                user["alterId"] = int(alter_id) if str(alter_id).isdigit() else 0
+                user["security"] = getattr(proxy, "vmess_scy", getattr(proxy, "scy", "auto")) or "auto"
 
             return {
                 "vnext": [
@@ -245,20 +266,20 @@ class ClientConfigGenerator:
                 ]
             }
 
-        elif proxy.protocol in ("trojan", "ss"):
+        elif proto in ("trojan", "ss", "shadowsocks"):
             server = {
                 "address": proxy.server,
                 "port": int(proxy.port),
             }
 
-            if proxy.protocol == "ss":
+            if proto in ("ss", "shadowsocks"):
                 if ":" in proxy.uuid_pwd:
                     method, pwd = proxy.uuid_pwd.split(":", 1)
                     server["method"] = method
                     server["password"] = pwd
                 else:
-                    server["method"] = "aes-256-gcm"
-                    server["password"] = proxy.uuid_pwd
+                    server["method"] = getattr(proxy, "method", "") or "aes-256-gcm"
+                    server["password"] = getattr(proxy, "password", "") or proxy.uuid_pwd
             else:
                 server["password"] = proxy.uuid_pwd
 
@@ -277,7 +298,7 @@ class ClientConfigGenerator:
         if not valid_domain and not ClientConfigGenerator._is_ip(proxy.server):
             valid_domain = proxy.server
 
-        if network == "ws":
+        if network in ("ws", "websocket"):
             raw_path = proxy.path if proxy.path else "/"
             clean_path = urllib.parse.unquote(raw_path)
             if not clean_path.startswith("/"):

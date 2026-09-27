@@ -1,3 +1,4 @@
+
 from gui.tabs.about.translations import FA as ABOUT_FA, EN as ABOUT_EN
 from gui.tabs.dashboard.translations import FA as DASH_FA, EN as DASH_EN
 from gui.tabs.export.translations import FA as EXP_FA, EN as EXP_EN
@@ -9,8 +10,8 @@ from gui.tabs.connect.translations import (
     EN as CONN_EN,
 )
 
-class LanguageManager:
 
+class LanguageManager:
     current_lang = "en"
 
     BASE_TEXTS = {
@@ -46,11 +47,9 @@ class LanguageManager:
             "tray_status_disconnected": "LuciNet - Disconnected 🔴",
             "sub_import_title": "Import Subscription",
             "sub_import_prompt": "Subscription link(s) found!\nWhich archive should they be placed in?\n\n(Note: If you want a new archive, type its name here)",
-
             "menu_import_clipboard": "📋 Import from Clipboard",
             "menu_import_file": "📄 Import from Text File",
             "menu_add_manual": "➕ Add Custom Configuration",
-
             "msg_error": "Error",
             "msg_clipboard_empty": "Your clipboard is empty!",
             "msg_select_file": "Select Config File",
@@ -98,11 +97,9 @@ class LanguageManager:
             "tray_status_disconnected": "لوسی‌نت - قطع 🔴",
             "sub_import_title": "وارد کردن سابسکریپشن",
             "sub_import_prompt": "لینک سابسکریپشن پیدا شد!\nدر کدام آرشیو قرار بگیرد؟\n\n(نکته: اگر می‌خواهید آرشیو جدید باشد، نام آن را اینجا تایپ کنید)",
-
             "menu_import_clipboard": "📋 ایمپورت از کلیپ‌بورد",
             "menu_import_file": "📄 ایمپورت از فایل متنی",
             "menu_add_manual": "➕ ساخت کانفیگ دستی",
-
             "msg_error": "خطا",
             "msg_clipboard_empty": "کلیپ‌بورد شما خالی است!",
             "msg_select_file": "انتخاب فایل کانفیگ",
@@ -145,11 +142,11 @@ class LanguageManager:
 
     @classmethod
     def tr(cls, key):
-
+        """متد ترجمه: کلمه معادل را بر اساس زبان فعلی برمی‌گرداند"""
         return cls.TEXTS.get(cls.current_lang, {}).get(key, key)
 
     @classmethod
     def toggle_language(cls):
-
+        """تغییر دهنده زبان"""
         cls.current_lang = "fa" if cls.current_lang == "en" else "en"
         return cls.current_lang

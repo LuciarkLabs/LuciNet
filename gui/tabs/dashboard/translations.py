@@ -1,3 +1,4 @@
+
 FA = {
     "dash_title": "داشبورد آماری",
     "dash_btn_refresh": "🔄بروزرسانی آمار",

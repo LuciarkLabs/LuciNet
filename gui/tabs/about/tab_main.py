@@ -1,3 +1,4 @@
+
 from PySide6.QtWidgets import QWidget, QMessageBox
 from PySide6.QtCore import QUrl
 from PySide6.QtGui import QDesktopServices
@@ -6,18 +7,18 @@ from gui.workers import AsyncTaskWorker
 from services.updater import UpdateChecker
 from .ui_layout import AboutUiLayout
 
+
 class AboutTab(QWidget):
     def __init__(self):
         super().__init__()
 
-        self.updater = UpdateChecker(current_version="2.0.0")
+        self.updater = UpdateChecker(current_version="2.5.0")
 
         self.ui = AboutUiLayout()
         self.ui.setup_ui(self)
 
         self.ui.btn_github.clicked.connect(self.open_github)
         self.ui.btn_telegram.clicked.connect(self.open_telegram)
-
         self.ui.btn_update.clicked.connect(lambda: self.check_for_update(silent=False))
 
         self.retranslate_ui()
@@ -25,7 +26,7 @@ class AboutTab(QWidget):
         self.check_for_update(silent=True)
 
     def retranslate_ui(self):
-
+        """متد اختصاصی برای ترجمه لحظه‌ای تب درباره ما"""
         self.ui.lbl_desc.setText(LanguageManager.tr("abt_desc"))
         self.ui.btn_github.setText(LanguageManager.tr("abt_btn_github"))
         self.ui.btn_telegram.setText(LanguageManager.tr("abt_btn_telegram"))
@@ -36,15 +37,15 @@ class AboutTab(QWidget):
             self.ui.btn_update.setText(LanguageManager.tr("abt_msg_checking"))
 
     def open_github(self):
-
+        """باز کردن لینک ریپازیتوری در مرورگر"""
         QDesktopServices.openUrl(QUrl("https://github.com/LuciarkLabs/LuciNet"))
 
     def open_telegram(self):
-
+        """باز کردن لینک کانال تلگرام"""
         QDesktopServices.openUrl(QUrl("https://t.me/LuciarkLabs"))
 
     def check_for_update(self, silent=False):
-
+        """شروع پروسه بررسی آپدیت در پس‌زمینه"""
         self.is_silent_update = silent
 
         self.ui.btn_update.setEnabled(False)
@@ -55,14 +56,13 @@ class AboutTab(QWidget):
         self.worker.start()
 
     def _on_update_result(self, result):
-
+        """پردازش نتیجه دریافت شده از گیت‌هاب"""
         self.ui.btn_update.setEnabled(True)
         self.ui.btn_update.setText(LanguageManager.tr("abt_btn_update"))
 
         has_update, latest_version, download_url = result
 
         if has_update:
-
             msg_box = QMessageBox(self)
             msg_box.setWindowTitle(LanguageManager.tr("abt_msg_update_avail_title"))
             msg_box.setText(
@@ -83,7 +83,6 @@ class AboutTab(QWidget):
             if msg_box.clickedButton() == btn_download:
                 QDesktopServices.openUrl(QUrl(download_url))
         else:
-
             if not self.is_silent_update:
                 QMessageBox.information(
                     self,

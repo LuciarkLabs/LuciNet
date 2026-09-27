@@ -1,3 +1,4 @@
+
 import sys
 import ctypes
 from PySide6.QtWidgets import QWidget, QMessageBox, QCheckBox, QApplication
@@ -6,7 +7,10 @@ from gui.language_manager import LanguageManager
 from gui.event_bus import event_bus
 from services.core_manager import CoreManager
 from gui.workers import AsyncTaskWorker
+from domain.models.raw_config import RawXrayConfig
+from domain.models.proxy import ProxyConfig
 from .ui_layout import ConnectUiLayout
+
 
 class ConnectTab(QWidget):
     def __init__(self, repository, scan_service):
@@ -26,9 +30,8 @@ class ConnectTab(QWidget):
         self.load_settings()
 
     def load_settings(self):
-
+        """بازیابی آخرین کانفیگ استفاده شده و وضعیت TUN"""
         tun_state = self.settings.value("tun_enabled", False, type=bool)
-
         try:
             is_admin = ctypes.windll.shell32.IsUserAnAdmin()
         except:
@@ -39,19 +42,38 @@ class ConnectTab(QWidget):
             self.settings.setValue("tun_enabled", False)
         self.ui.chk_tun.setChecked(tun_state)
 
-        last_proxy_id = self.settings.value("last_proxy_id")
-        if last_proxy_id:
+        last_type = self.settings.value("last_selected_type")
+        last_id = self.settings.value("last_selected_id")
 
-            self.worker = AsyncTaskWorker(self.repository.get_all())
-            self.worker.finished_signal.connect(
-                lambda proxies: self._restore_last_proxy(proxies, int(last_proxy_id))
-            )
-            self.worker.start()
+        if not last_type and self.settings.value("last_proxy_id"):
+            last_type = "proxy"
+            last_id = self.settings.value("last_proxy_id")
 
-    def _restore_last_proxy(self, proxies, last_id):
-        for p in proxies:
-            if p.id == last_id:
-                self.on_proxy_selected(p)
+        if last_type not in ("proxy", "raw"):
+            last_type = None
+
+        if last_type and last_id:
+            try:
+                last_id = int(last_id)
+                if last_type == "raw" and hasattr(self.repository, "get_all_raw_configs"):
+                    self.worker = AsyncTaskWorker(self.repository.get_all_raw_configs())
+                    self.worker.finished_signal.connect(
+                        lambda configs: self._restore_last_item(configs, last_id)
+                    )
+                    self.worker.start()
+                else:
+                    self.worker = AsyncTaskWorker(self.repository.get_all())
+                    self.worker.finished_signal.connect(
+                        lambda proxies: self._restore_last_item(proxies, last_id)
+                    )
+                    self.worker.start()
+            except Exception:
+                pass
+
+    def _restore_last_item(self, items, last_id):
+        for item in items:
+            if item.id == last_id:
+                self.on_proxy_selected(item)
                 break
 
     def _connect_signals(self):
@@ -70,18 +92,25 @@ class ConnectTab(QWidget):
 
     def on_proxy_selected(self, proxy):
         self.selected_proxy = proxy
-        name = proxy.remark if proxy.remark else f"{proxy.server}:{proxy.port}"
+        p_type = "unknown"
+        name = "Unknown Config"
+
+        if isinstance(proxy, RawXrayConfig):
+            name = proxy.name if proxy.name else "Raw JSON Config"
+            p_type = "raw"
+        elif isinstance(proxy, ProxyConfig):
+            name = proxy.remark if proxy.remark else f"{proxy.server}:{proxy.port}"
+            p_type = "proxy"
+            
         self.ui.lbl_selected_node.setText(name)
 
-        if proxy and proxy.id:
-            self.settings.setValue("last_proxy_id", proxy.id)
+        if proxy and proxy.id and p_type != "unknown":
+            self.settings.setValue("last_selected_type", p_type)
+            self.settings.setValue("last_selected_id", str(proxy.id))
 
     def handle_quick_connect(self, proxy):
-
         if self.core_manager.is_connected:
-
             self.core_manager.stop_connection()
-
             if proxy is None:
                 return
 
@@ -92,7 +121,9 @@ class ConnectTab(QWidget):
     def toggle_connection(self):
         if not self.selected_proxy:
             QMessageBox.warning(
-                self, "خطا", "لطفاً ابتدا یک کانفیگ را از تب آرشیو انتخاب کنید!"
+                self,
+                LanguageManager.tr("conn_msg_no_proxy_title"),
+                LanguageManager.tr("conn_msg_no_proxy_body"),
             )
             event_bus.request_view_change.emit("archive")
             return
@@ -143,11 +174,12 @@ class ConnectTab(QWidget):
     def retranslate_ui(self):
         self.ui.lbl_node_title.setText(LanguageManager.tr("conn_lbl_selected_node"))
         if self.selected_proxy:
-            name = (
-                self.selected_proxy.remark
-                if self.selected_proxy.remark
-                else f"{self.selected_proxy.server}:{self.selected_proxy.port}"
-            )
+            proxy = self.selected_proxy
+            name = "Unknown Config"
+            if isinstance(proxy, RawXrayConfig):
+                name = proxy.name if proxy.name else "Raw JSON Config"
+            elif isinstance(proxy, ProxyConfig):
+                name = proxy.remark if proxy.remark else f"{proxy.server}:{proxy.port}"
             self.ui.lbl_selected_node.setText(name)
         else:
             self.ui.lbl_selected_node.setText(LanguageManager.tr("conn_no_node"))
@@ -186,7 +218,6 @@ class ConnectTab(QWidget):
             ret = msg_box.exec()
 
             if ret == QMessageBox.StandardButton.Cancel:
-
                 self.ui.chk_tun.setChecked(False)
                 return
 

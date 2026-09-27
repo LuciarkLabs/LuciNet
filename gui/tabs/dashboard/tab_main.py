@@ -1,3 +1,4 @@
+
 import re
 from PySide6.QtWidgets import (
     QWidget,
@@ -14,11 +15,13 @@ from gui.language_manager import LanguageManager
 from .ui_layout import DashboardUiLayout
 from gui.event_bus import event_bus
 
-def clean_proxy_url(raw_url):
 
+def clean_proxy_url(raw_url):
+    """تابع کمکی برای پاکسازی کاراکترهای نامعتبر از لینک کانفیگ"""
     if not raw_url:
         return ""
     return re.sub(r"[\x00-\x1f\x7f]", "", raw_url).strip()
+
 
 class DashboardTab(QWidget):
     def __init__(self, repository):
@@ -39,7 +42,6 @@ class DashboardTab(QWidget):
 
         self.ui.btn_refresh.clicked.connect(self.load_statistics)
         self.ui.table_view.customContextMenuRequested.connect(self.show_context_menu)
-
         event_bus.data_changed.connect(self.load_statistics)
         event_bus.scan_lock_changed.connect(
             self.on_scan_lock_changed
@@ -49,7 +51,7 @@ class DashboardTab(QWidget):
         self.retranslate_ui()
 
     def on_scan_lock_changed(self, is_locked, group_name):
-
+        """قفل کردن دکمه رفرش در زمان درگیر بودن دیتابیس توسط اسکنر"""
         self.is_db_locked = is_locked
         self.ui.btn_refresh.setEnabled(not is_locked)
 

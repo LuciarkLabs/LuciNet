@@ -1,0 +1,20 @@
+[
+  {
+    "id": "diff-trojan-grpc",
+    "input": "trojan://password123@5.6.7.8:8443?type=grpc&security=tls&sni=test.com&serviceName=test_svc#my_trojan",
+    "expected_kind": "value",
+    "expected": {
+      "protocol": "trojan",
+      "server": "5.6.7.8",
+      "port": 8443,
+      "password": "password123",
+      "remark": "my_trojan",
+      "network": "grpc",
+      "security_type": "tls",
+      "sni": "test.com",
+      "grpc_service_name": "test_svc"
+    },
+    "source": "libXray/share/parse_share.go",
+    "reference_commit": "55cb29e214c5b77a1ba485da639a9e6b9b98adca"
+  }
+]

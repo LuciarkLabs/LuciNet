@@ -7,14 +7,20 @@ from utils.logger import get_logger
 
 logger = get_logger("Checker")
 
+
 class XrayChecker:
     def __init__(self, geoip_service):
         self.geoip_service = geoip_service
         self.timeout_seconds = AppConfig.SCAN_TIMEOUT_SECONDS
+        self.probe_mode = "http"
 
     def set_timeout(self, timeout: int):
-
+        """تنظیم داینامیک زمان تایم‌اوت"""
         self.timeout_seconds = timeout
+
+    def set_probe_mode(self, mode: str):
+        """تنظیم نوع پروب: http یا https"""
+        self.probe_mode = "https" if str(mode).lower() == "https" else "http"
 
     async def check_connection(self, local_port: int) -> ScanResult:
         start_time = time.time()
@@ -28,7 +34,11 @@ class XrayChecker:
                     "Accept": "*/*",
                     "Connection": "keep-alive",
                 }
-                test_url = "http://www.gstatic.com/generate_204"
+                test_url = (
+                    "https://www.gstatic.com/generate_204"
+                    if getattr(self, "probe_mode", "http") == "https"
+                    else "http://www.gstatic.com/generate_204"
+                )
 
                 async with session.get(
                     test_url, proxy=proxy_url, headers=headers, allow_redirects=False
@@ -83,25 +93,25 @@ class XrayChecker:
                     outbound_ip=outbound_ip,
                 )
 
-        except asyncio.TimeoutError:
+        except (asyncio.TimeoutError, TimeoutError, aiohttp.ServerTimeoutError):
             return ScanResult(status="Timeout", error_message="Timeout")
         except Exception as e:
             logger.debug(
                 f"Port {local_port} check failed: {type(e).__name__} - {str(e)}"
             )
-            return ScanResult(status="Timeout", error_message="Timeout")
+            err_msg = f"{type(e).__name__}: {str(e)}" if str(e) else type(e).__name__
+            return ScanResult(status="Error", error_message=err_msg)
 
     async def check_speed(self, local_port: int, max_size_kb: int = 500) -> float:
-\
-\
-
+        """
+        تست سرعت هوشمند با سرور OVH و هدرهای مرورگر واقعی برای دور زدن WAF
+        """
         start_time = time.time()
         try:
             proxy_url = f"http://127.0.0.1:{local_port}"
             timeout = aiohttp.ClientTimeout(total=15)
 
             async with aiohttp.ClientSession(timeout=timeout) as session:
-
                 headers = {
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                     "Accept": "*/*",

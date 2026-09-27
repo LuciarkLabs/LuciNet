@@ -1,3 +1,4 @@
+
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -10,8 +11,10 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QAction
 from PySide6.QtCore import Qt
 
+
 class MainWindowUI:
     def setup_ui(self, main_window):
+        """ساخت و چینش تمام المان‌های گرافیکی پنجره اصلی"""
 
         self._create_menu_bar(main_window)
 
@@ -80,14 +83,14 @@ class MainWindowUI:
         main_window.setCentralWidget(central_widget)
 
     def _create_sidebar_btn(self):
-
+        """متد کمکی برای ساخت دکمه‌های سایدبار بدون اتصال سیگنال"""
         btn = QPushButton()
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setObjectName("sidebarBtn")
         return btn
 
     def _create_menu_bar(self, main_window):
-
+        """ساخت منوهای نوار بالای نرم‌افزار بدون اتصال سیگنال‌ها"""
         menu_bar = main_window.menuBar()
 
         self.menu_servers = menu_bar.addMenu("")

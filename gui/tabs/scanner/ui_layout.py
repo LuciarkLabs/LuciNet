@@ -1,3 +1,4 @@
+
 from PySide6.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
@@ -11,15 +12,18 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QGroupBox,
     QCheckBox,
+    QRadioButton,
+    QButtonGroup,
 )
 from PySide6.QtCore import Qt
 
+
 class ScannerUiLayout:
     def setup_ui(self, parent_widget):
-\
-\
-\
-
+        """
+        این متد فقط المان‌های بصری تب اسکنر را می‌سازد.
+        هیچ‌گونه منطق پردازشی، اتصال به موتور Xray یا دیتابیس در اینجا وجود ندارد.
+        """
         layout = QVBoxLayout(parent_widget)
         toolbar = QHBoxLayout()
 
@@ -41,6 +45,63 @@ class ScannerUiLayout:
         self.btn_load_all = QPushButton()
         archive_toolbar.addWidget(self.btn_load_untested)
         archive_toolbar.addWidget(self.btn_load_all)
+
+        archive_toolbar.addSpacing(25)
+
+        probe_radio_style = """
+            QRadioButton {
+                spacing: 6px;
+                font-weight: bold;
+            }
+            QRadioButton::indicator {
+                width: 16px;
+                height: 16px;
+                border-radius: 9px;
+                border: 2px solid #718093;
+                background-color: transparent;
+            }
+            QRadioButton::indicator:hover {
+                border-color: #00a8ff;
+            }
+            QRadioButton::indicator:checked {
+                border: 2px solid #00a8ff;
+                background-color: qradialgradient(
+                    cx: 0.5, cy: 0.5, radius: 0.5, fx: 0.5, fy: 0.5,
+                    stop: 0 #00a8ff, stop: 0.50 #00a8ff, stop: 0.55 transparent, stop: 1 transparent
+                );
+            }
+            QRadioButton::indicator:disabled {
+                border-color: #576574;
+                background-color: transparent;
+            }
+            QRadioButton::indicator:checked:disabled {
+                border-color: #576574;
+                background-color: qradialgradient(
+                    cx: 0.5, cy: 0.5, radius: 0.5, fx: 0.5, fy: 0.5,
+                    stop: 0 #576574, stop: 0.50 #576574, stop: 0.55 transparent, stop: 1 transparent
+                );
+            }
+            QRadioButton:disabled {
+                color: #718093;
+            }
+        """
+
+        self.probe_group = QButtonGroup(parent_widget)
+        self.rb_probe_http = QRadioButton("HTTP 80")
+        self.rb_probe_http.setChecked(True)
+        self.rb_probe_http.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.rb_probe_http.setStyleSheet(probe_radio_style)
+        self.probe_group.addButton(self.rb_probe_http)
+        archive_toolbar.addWidget(self.rb_probe_http)
+
+        archive_toolbar.addSpacing(10)
+
+        self.rb_probe_https = QRadioButton("HTTPS 443")
+        self.rb_probe_https.setChecked(False)
+        self.rb_probe_https.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.rb_probe_https.setStyleSheet(probe_radio_style)
+        self.probe_group.addButton(self.rb_probe_https)
+        archive_toolbar.addWidget(self.rb_probe_https)
 
         archive_toolbar.addStretch()
         layout.addLayout(archive_toolbar)
@@ -134,15 +195,15 @@ class ScannerUiLayout:
 
         self.filter_group = QGroupBox()
         self.filter_group.setStyleSheet("""
-            QGroupBox {
-                font-weight: bold;
-                margin-top: 30px;
+            QGroupBox { 
+                font-weight: bold; 
+                margin-top: 30px; 
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
                 subcontrol-position: top center;
                 top: 0px;
-                padding: 4px 10px;
+                padding: 4px 10px; 
             }
         """)
 
@@ -159,7 +220,7 @@ class ScannerUiLayout:
 
         self.lbl_protocol_filter = QLabel()
         self.cmb_protocol = QComboBox()
-        self.cmb_protocol.addItems(["", "vless", "vmess", "trojan", "ss"])
+        self.cmb_protocol.addItems(["", "vless", "vmess", "trojan", "ss", "RAW JSON"])
 
         self.lbl_ip_filter = QLabel()
         self.cmb_ip_filter = QComboBox()

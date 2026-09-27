@@ -1,14 +1,16 @@
+
 import os
 from PySide6.QtWidgets import QVBoxLayout, QLabel, QPushButton, QHBoxLayout, QSizePolicy
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 
+
 class AboutUiLayout:
     def setup_ui(self, parent_widget):
-\
-\
-\
-
+        """
+        این متد فقط المان‌های بصری را روی ویجت والد (parent_widget) می‌چیند.
+        هیچ منطق، سیگنال یا ترجمه‌ای نباید اینجا قرار بگیرد.
+        """
         layout = QVBoxLayout(parent_widget)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
@@ -54,7 +56,7 @@ class AboutUiLayout:
         )
         layout.addWidget(self.lbl_brand)
 
-        self.lbl_version = QLabel("v2.0.0")
+        self.lbl_version = QLabel("v2.5.0")
         self.lbl_version.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_version.setStyleSheet(
             "font-size: 13px; color: #7f8fa6; margin-bottom: 25px; background: transparent;"
@@ -97,6 +99,7 @@ class AboutUiLayout:
             "background-color: #44bd32; color: white; font-weight: bold; border-radius: 25px; font-size: 14px;"
             "min-width: 145px; max-width: 145px; min-height: 39px; max-height: 39px;"
         )
+
 
         row1_layout = QHBoxLayout()
         row1_layout.addStretch()

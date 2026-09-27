@@ -1,14 +1,16 @@
+
 from PySide6.QtWidgets import QVBoxLayout, QLabel, QPushButton, QCheckBox
 from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, Property, QRectF
 from PySide6.QtGui import QPainter, QColor
 from PySide6.QtCore import Qt
 from gui.language_manager import LanguageManager
 
+
 class AnimatedToggle(QCheckBox):
+    """سوییچ کشویی سفارشی هوشمند (داینامیک)"""
 
     def __init__(self, parent=None):
         super().__init__(parent)
-
         self.setFixedSize(170, 36)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
 
@@ -84,6 +86,7 @@ class AnimatedToggle(QCheckBox):
 
     def hitButton(self, pos):
         return self.rect().contains(pos)
+
 
 class ConnectUiLayout:
     def setup_ui(self, parent_widget):

@@ -4,6 +4,7 @@ from utils.logger import get_logger
 
 logger = get_logger("UI_Workers")
 
+
 class AsyncTaskWorker(QThread):
     finished_signal = Signal(object)
     error_signal = Signal(str)
@@ -12,9 +13,7 @@ class AsyncTaskWorker(QThread):
     def __init__(self, coroutine):
         super().__init__()
         self.coroutine = coroutine
-
         AsyncTaskWorker._active.add(self)
-
         self.finished.connect(self._cleanup)
 
     def _cleanup(self):
@@ -33,6 +32,7 @@ class AsyncTaskWorker(QThread):
         finally:
             loop.close()
 
+
 class ScanWorker(QThread):
     progress_signal = Signal(object, dict)
     finished_signal = Signal()
@@ -40,13 +40,19 @@ class ScanWorker(QThread):
     _active = set()
 
     def __init__(
-        self, scan_service, proxies_to_scan, concurrent_scans, timeout_seconds
+        self,
+        scan_service,
+        proxies_to_scan,
+        concurrent_scans,
+        timeout_seconds,
+        probe_mode="http",
     ):
         super().__init__()
         self.scan_service = scan_service
         self.proxies = proxies_to_scan
         self.concurrent_scans = concurrent_scans
         self.timeout_seconds = timeout_seconds
+        self.probe_mode = probe_mode
         ScanWorker._active.add(self)
         self.finished.connect(self._cleanup)
 
@@ -68,6 +74,7 @@ class ScanWorker(QThread):
                     on_progress,
                     concurrent_scans=self.concurrent_scans,
                     timeout_seconds=self.timeout_seconds,
+                    probe_mode=self.probe_mode,
                 )
             )
         except Exception as e:
@@ -76,6 +83,7 @@ class ScanWorker(QThread):
         finally:
             self.finished_signal.emit()
             loop.close()
+
 
 class SpeedTestWorker(QThread):
     progress_signal = Signal(object)

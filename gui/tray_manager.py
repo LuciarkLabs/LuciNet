@@ -1,6 +1,8 @@
+
 from PySide6.QtWidgets import QSystemTrayIcon, QMenu
 from PySide6.QtGui import QAction, QIcon
 from gui.language_manager import LanguageManager
+
 
 class TrayManager:
     def __init__(self, main_window):
@@ -43,22 +45,21 @@ class TrayManager:
         self.tray_icon.show()
 
     def _tray_connect_clicked(self):
-
+        """زمانی که از منوی Tray درخواست اتصال صادر می‌شود"""
         if not self.main_window.connect_tab.selected_proxy:
-
             self.main_window.show_window()
         self.main_window.connect_tab.toggle_connection()
 
     def _tray_disconnect_clicked(self):
-
+        """قطع اتصال از منوی سیستم ترِی"""
         self.main_window.connect_tab.toggle_connection()
 
     def _on_tray_activated(self, reason):
-
         if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
             self.main_window.show_window()
 
     def update_tray_status(self, is_connected):
+        """آپدیت دوزبانه بودن نوتیفیکیشن‌ها و دکمه‌های متصل/قطع"""
 
         if hasattr(self, "_last_status") and self._last_status == is_connected:
             return
@@ -86,7 +87,7 @@ class TrayManager:
             self.action_tray_disconnect.setVisible(False)
 
     def retranslate_ui(self):
-
+        """آپدیت آنی متون منوی System Tray با تغییر زبان"""
         self.action_show_app.setText(LanguageManager.tr("tray_open"))
         self.action_tray_connect.setText(LanguageManager.tr("tray_connect"))
         self.action_tray_disconnect.setText(LanguageManager.tr("tray_disconnect"))

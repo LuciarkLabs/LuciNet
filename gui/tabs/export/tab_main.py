@@ -1,8 +1,10 @@
+
 from PySide6.QtWidgets import QWidget, QMessageBox, QFileDialog
 from gui.workers import AsyncTaskWorker
 from gui.language_manager import LanguageManager
 from .ui_layout import ExportUiLayout
 from gui.event_bus import event_bus
+
 
 class ExportTab(QWidget):
     def __init__(self, repository):
@@ -30,7 +32,7 @@ class ExportTab(QWidget):
         self.retranslate_ui()
 
     def retranslate_ui(self):
-
+        """متد اختصاصی برای ترجمه لحظه‌ای تب خروجی"""
         self.ui.settings_group.setTitle(LanguageManager.tr("exp_group_settings"))
         self.ui.lbl_archive.setText(LanguageManager.tr("exp_lbl_archive"))
 
@@ -47,7 +49,7 @@ class ExportTab(QWidget):
         )
 
     def on_scan_lock_changed(self, is_locked, group_name):
-
+        """قفل کردن رابط کاربری تب خروجی در زمان درگیر بودن دیتابیس"""
         self.is_db_locked = is_locked
 
         self.ui.btn_export_all.setEnabled(not is_locked)
@@ -73,7 +75,6 @@ class ExportTab(QWidget):
         prefix = LanguageManager.tr("exp_cmb_archive_prefix")
         for g in groups:
             if g:
-
                 display_name = g if len(g) < 40 else g[:37] + "..."
                 formatted_name = prefix.format(name=display_name)
                 self.ui.cmb_group.addItem(f"📂 {formatted_name}", g)
@@ -84,7 +85,6 @@ class ExportTab(QWidget):
         self.ui.cmb_group.blockSignals(False)
 
     def start_export(self, only_valid: bool):
-
         if self.is_db_locked:
             return
         self.export_mode = "valid" if only_valid else "all"

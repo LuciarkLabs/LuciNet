@@ -2,6 +2,7 @@ import logging
 import sys
 from pathlib import Path
 
+
 def get_logger(name: str = "Lucinet") -> logging.Logger:
     logger = logging.getLogger(name)
     if not logger.handlers:

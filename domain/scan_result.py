@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 import time
 
+
 @dataclass
 class ScanResult:
     status: str = "Untested"

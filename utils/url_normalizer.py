@@ -6,6 +6,7 @@ from utils.base64_helper import decode_base64
 logger = get_logger("Normalizer")
 IGNORED_PARAMS = {"remark", "name", "group", "host", "core"}
 
+
 def normalize_config_url(raw_url: str) -> str:
     try:
         if raw_url.startswith("vmess://"):

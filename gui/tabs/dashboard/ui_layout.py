@@ -1,3 +1,4 @@
+
 from PySide6.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
@@ -12,12 +13,13 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 
+
 class DashboardUiLayout:
     def setup_ui(self, parent_widget):
-\
-\
-\
-
+        """
+        این متد فقط ساختار شبکه‌ای، رنگ‌ها و اندازه‌های داشبورد را تنظیم می‌کند.
+        داده‌ها و لاجیکِ جدول‌ها در فایل کنترلر متصل خواهند شد.
+        """
         layout = QVBoxLayout(parent_widget)
 
         header_layout = QHBoxLayout()
@@ -94,19 +96,16 @@ class DashboardUiLayout:
         top_layout.setContentsMargins(10, 15, 10, 10)
 
         self.table_view = QTableView()
-
         self.table_view.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
-
         header = self.table_view.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-
         self.table_view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
 
         top_layout.addWidget(self.table_view)
         layout.addWidget(self.top_proxies_group)
 
     def _create_stat_card(self, value, color, parent_layout):
-
+        """متد کمکی برای ترسیم المان‌های گرافیکی کارت‌های آماری"""
         card = QFrame()
         card.setStyleSheet(f"border-bottom: 4px solid {color};")
         vbox = QVBoxLayout(card)

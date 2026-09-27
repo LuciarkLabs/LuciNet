@@ -4,6 +4,7 @@ from PySide6.QtWidgets import QDialog, QVBoxLayout, QLabel
 from PySide6.QtGui import QPixmap, QImage
 from PySide6.QtCore import Qt
 
+
 class QRDialog(QDialog):
     def __init__(self, title, url, parent=None):
         super().__init__(parent)

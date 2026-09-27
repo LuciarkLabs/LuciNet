@@ -1,0 +1,9 @@
+[flake8]
+ignore = E501, E701, W293, E302, W291, W391, E231, E203, E226
+max-line-length = 120
+exclude = .git,__pycache__,venv
+# Rationale for ignored rules:
+# E501: Line length is highly subjective and we often have long URLs/strings.
+# E701: One-liner if-statements are used consciously in parsing logic for conciseness.
+# W293, W291, W391, E231, E203, E226: Purely stylistic whitespace formatting rules that do not affect runtime behavior.
+# We explicitly DO NOT ignore E722 (bare except) or any F/E9 structural rules.

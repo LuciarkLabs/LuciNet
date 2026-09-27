@@ -1,0 +1,20 @@
+[
+  {
+    "id": "diff-vmess-aead-ws",
+    "input": "vmess://feb54431-301b-52bb-a6dd-e1e93e81bb9e@1.2.3.4:443?type=ws&security=tls&sni=ex.com&path=%2Ffoo#rem",
+    "expected_kind": "value",
+    "expected": {
+      "protocol": "vmess",
+      "server": "1.2.3.4",
+      "port": 443,
+      "user_id": "feb54431-301b-52bb-a6dd-e1e93e81bb9e",
+      "remark": "rem",
+      "network": "websocket",
+      "security_type": "tls",
+      "path": "/foo",
+      "sni": "ex.com"
+    },
+    "source": "libXray/share/parse_share.go",
+    "reference_commit": "55cb29e214c5b77a1ba485da639a9e6b9b98adca"
+  }
+]

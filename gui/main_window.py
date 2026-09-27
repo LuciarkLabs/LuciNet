@@ -21,6 +21,7 @@ from gui.tabs.export.tab_main import ExportTab
 from gui.tabs.dashboard.tab_main import DashboardTab
 from gui.tabs.about.tab_main import AboutTab
 
+
 class MainWindow(QMainWindow):
     def __init__(self, parser_factory, repository, scan_service):
         super().__init__()
@@ -64,7 +65,7 @@ class MainWindow(QMainWindow):
         )
 
     def _connect_signals(self):
-
+        """اتصال دکمه‌های ظاهر (UI) به توابعِ مربوطه"""
         self.ui.btn_nav_connect.clicked.connect(self.show_connect_view)
         self.ui.btn_nav_archive.clicked.connect(self.show_archive_view)
         self.ui.btn_quick_dashboard.clicked.connect(self.show_dashboard_window)
@@ -121,13 +122,7 @@ class MainWindow(QMainWindow):
             return
 
         try:
-            cflags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
-            subprocess.Popen(
-                ["taskkill", "/F", "/IM", "xray.exe", "/T"],
-                creationflags=cflags,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
+            self.connect_tab.core_manager.stop_connection(clear_sys_proxy=True)
         except Exception:
             pass
 

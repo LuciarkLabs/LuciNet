@@ -1,3 +1,4 @@
+
 from PySide6.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
@@ -11,12 +12,13 @@ from PySide6.QtWidgets import (
     QSizePolicy,
 )
 
+
 class RenameUiLayout:
     def setup_ui(self, parent_widget):
-\
-\
-\
-
+        """
+        این متد فقط المان‌های بصری تب تغییر نام را می‌سازد.
+        هیچ‌گونه پردازش لینک، رجکس یا اتصال سیگنالی در اینجا وجود ندارد.
+        """
         layout = QVBoxLayout(parent_widget)
 
         self.target_group = QGroupBox()

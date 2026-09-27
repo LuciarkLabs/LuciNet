@@ -1,5 +1,6 @@
 from PySide6.QtWidgets import QApplication
 
+
 class ThemeManager:
     is_dark = True
 
@@ -12,11 +13,11 @@ class ThemeManager:
     QTabBar::tab:hover:!selected { background-color: #313244; }
     QTableView { background-color: #1e1e2e !important; alternate-background-color: #181825 !important; color: #cdd6f4 !important; gridline-color: #313244 !important; border: 1px solid #313244; outline: none; }
     QHeaderView::section { background-color: #313244 !important; color: #cdd6f4 !important; padding: 5px; border: 1px solid #313244; font-weight: bold; }
-
+    
     /* اصلاح بریدگی فونت‌های فارسی در تمام کادرهای برنامه */
     QGroupBox { font-weight: bold; border: 1px solid #313244 !important; border-radius: 5px; margin-top: 30px; color: #89b4fa !important; }
     QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top center; padding: 4px 10px; top: 0px; }
-
+    
     QFrame { background-color: #1e1e2e !important; }
     QLineEdit, QComboBox, QSpinBox { background-color: #313244; color: #cdd6f4; border: 1px solid #45475a; padding: 5px; border-radius: 4px; }
     QPushButton { font-weight: bold; border-radius: 5px; padding: 6px 15px; border: none; }
@@ -41,11 +42,11 @@ class ThemeManager:
     QTabBar::tab:hover:!selected { background-color: #bdc3c7; }
     QTableView { background-color: white !important; alternate-background-color: #f1f2f6 !important; color: #2f3640 !important; gridline-color: #dcdde1 !important; border: 1px solid #dcdde1; outline: none; }
     QHeaderView::section { background-color: #2f3640 !important; color: white !important; padding: 5px; border: 1px solid #dcdde1; font-weight: bold; }
-
+    
     /* اصلاح بریدگی فونت‌های فارسی در تمام کادرهای برنامه */
     QGroupBox { font-weight: bold; border: 1px solid #dcdde1 !important; border-radius: 5px; margin-top: 30px; color: #2f3640 !important; }
     QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top center; padding: 4px 10px; top: 0px; }
-
+    
     QFrame { background-color: white !important; }
     QLineEdit, QComboBox, QSpinBox { background-color: white; color: #2f3640; border: 1px solid #dcdde1; padding: 5px; border-radius: 4px; }
     QPushButton { font-weight: bold; border-radius: 5px; padding: 6px 15px; border: none; }

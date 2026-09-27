@@ -1,3 +1,4 @@
+
 import datetime
 from PySide6.QtWidgets import (
     QDialog,
@@ -15,6 +16,7 @@ from PySide6.QtCore import Qt
 
 from gui.workers import AsyncTaskWorker
 from domain.subscription import Subscription
+
 
 class SubscriptionDialog(QDialog):
     def __init__(self, repository, sub_service, default_group="", parent=None):
@@ -93,14 +95,15 @@ class SubscriptionDialog(QDialog):
 
         self.btn_close.clicked.connect(self.close)
 
-    def load_data(self):
 
+    def load_data(self):
+        """دریافت لیست سابسکریپشن‌ها از دیتابیس به صورت غیرهمگام"""
         self.worker_load = AsyncTaskWorker(self.repository.get_subscriptions())
         self.worker_load.finished_signal.connect(self._on_data_loaded)
         self.worker_load.start()
 
     def _on_data_loaded(self, subs):
-
+        """پر کردن جدول با اطلاعات دریافتی از دیتابیس"""
         self.table.setRowCount(len(subs))
         for row, sub in enumerate(subs):
             item_id = QTableWidgetItem(str(sub.id))
@@ -125,7 +128,7 @@ class SubscriptionDialog(QDialog):
             self.table.setItem(row, 3, item_date)
 
     def add_subscription(self):
-
+        """اضافه کردن لینک جدید به دیتابیس"""
         name = self.txt_name.text().strip()
         url = self.txt_url.text().strip()
 
@@ -165,7 +168,7 @@ class SubscriptionDialog(QDialog):
         self.load_data()
 
     def delete_subscription(self):
-
+        """حذف لینک انتخاب شده از جدول و دیتابیس"""
         selected_items = self.table.selectedItems()
         if not selected_items:
             QMessageBox.warning(

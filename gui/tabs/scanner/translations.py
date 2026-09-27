@@ -1,3 +1,4 @@
+
 FA = {
     "scn_lbl_archive": "آرشیو:",
     "scn_btn_refresh": "🔄 بروزرسانی",
@@ -61,6 +62,8 @@ FA = {
     "scn_msg_no_valid_body": "هیچ کانفیگ سالمی (Valid) در این آرشیو یافت نشد!",
     "scn_lbl_ip_filter": "نوع آدرس:",
     "scn_cmb_all_ips": "-- همه آدرس‌ها --",
+    "scn_probe_http": "HTTP 80",
+    "scn_probe_https": "HTTPS 443",
 }
 
 EN = {
@@ -126,4 +129,6 @@ EN = {
     "scn_msg_no_valid_body": "No valid configs found in this archive!",
     "scn_lbl_ip_filter": "Address Type:",
     "scn_cmb_all_ips": "-- All Addresses --",
+    "scn_probe_http": "HTTP 80",
+    "scn_probe_https": "HTTPS 443",
 }

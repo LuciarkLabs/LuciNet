@@ -1,3 +1,4 @@
+
 FA = {
     "arc_lbl_archive": "آرشیو:",
     "arc_btn_new_archive": "➕ آرشیو جدید",

@@ -1,3 +1,4 @@
+
 import json
 import base64
 import random
@@ -99,8 +100,9 @@ ANIMAL_EMOJIS = [
     "🐢",
 ]
 
-def update_config_url(config) -> str:
 
+def update_config_url(config) -> str:
+    """بروزرسانی لینک خام (raw_url) بر اساس نام جدید"""
     raw_url = config.raw_url
     protocol = config.protocol.lower()
     new_remark = config.remark
@@ -134,6 +136,7 @@ def update_config_url(config) -> str:
         except Exception:
             return raw_url
 
+
 class RenameTab(QWidget):
     def __init__(self, repository):
         super().__init__()
@@ -154,7 +157,7 @@ class RenameTab(QWidget):
         self.retranslate_ui()
 
     def retranslate_ui(self):
-
+        """متد اختصاصی برای ترجمه لحظه‌ای تب تغییر نام"""
         self.ui.target_group.setTitle(LanguageManager.tr("ren_group_target"))
         self.ui.settings_group.setTitle(LanguageManager.tr("ren_group_settings"))
 
@@ -220,14 +223,13 @@ class RenameTab(QWidget):
         self.ui.btn_refresh_groups.setText(LanguageManager.tr("ren_btn_refresh_groups"))
 
     def on_scan_lock_changed(self, is_locked, group_name):
-
+        """قفل کردن دکمه‌ی تغییر نام در زمان درگیر بودن دیتابیس"""
         self.is_db_locked = is_locked
 
         self.ui.btn_apply.setEnabled(not is_locked)
         self.ui.btn_refresh_groups.setEnabled(not is_locked)
 
         if is_locked:
-
             self.ui.btn_apply.setText(LanguageManager.tr("ren_btn_processing"))
         else:
             self.ui.btn_apply.setText(LanguageManager.tr("ren_btn_apply"))
@@ -346,7 +348,6 @@ class RenameTab(QWidget):
                 LanguageManager.tr("ren_msg_success_title"),
                 LanguageManager.tr("ren_msg_success_body").format(count=updated_count),
             )
-
             event_bus.data_changed.emit()
 
     def _on_process_error(self, err_msg):

@@ -4,15 +4,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 if getattr(sys, "frozen", False):
-
     ROOT_DIR = Path(sys.executable).parent
 else:
-
     ROOT_DIR = Path(__file__).parent.resolve()
+
 
 @dataclass
 class AppConfig:
-
     BASE_DIR: Path = ROOT_DIR
 
     DATA_DIR: Path = BASE_DIR / "data"
@@ -30,5 +28,6 @@ class AppConfig:
     def ensure_directories(cls):
         cls.DATA_DIR.mkdir(exist_ok=True)
         cls.XRAY_DIR.mkdir(exist_ok=True)
+
 
 AppConfig.ensure_directories()

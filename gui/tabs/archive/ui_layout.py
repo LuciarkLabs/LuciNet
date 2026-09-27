@@ -1,3 +1,4 @@
+
 from PySide6.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
@@ -17,6 +18,7 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
 )
 from PySide6.QtCore import Qt
+
 
 class ArchiveUiLayout:
     def setup_ui(self, parent_widget):
@@ -125,7 +127,7 @@ class ArchiveUiLayout:
 
         self.lbl_protocol_filter = QLabel()
         self.cmb_protocol = QComboBox()
-        self.cmb_protocol.addItems(["", "vless", "vmess", "trojan", "ss"])
+        self.cmb_protocol.addItems(["", "vless", "vmess", "trojan", "ss", "RAW JSON"])
 
         self.lbl_ip_filter = QLabel()
         self.cmb_ip_filter = QComboBox()
@@ -169,9 +171,9 @@ class ArchiveUiLayout:
         self.txt_console.setReadOnly(True)
         self.txt_console.setStyleSheet("""
             QPlainTextEdit {
-                background-color: #1e1e1e;
-                color: #00ff00;
-                font-family: Consolas, 'Courier New', monospace;
+                background-color: #1e1e1e; 
+                color: #00ff00; 
+                font-family: Consolas, 'Courier New', monospace; 
                 font-size: 13px;
                 padding: 5px;
                 border-radius: 4px;
